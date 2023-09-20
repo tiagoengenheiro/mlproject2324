@@ -2,7 +2,7 @@
 ## Report URL
 https://www.overleaf.com/project/6506139041ebea3b84f98a79
 
-## Instalation and Usage with VSCode
+## Installation and Usage with VSCode
 1. Clone the repository
 2. Open it with vscode
 3. Create a conda environment with python 3.9 and install the requirements in requirements.txt
