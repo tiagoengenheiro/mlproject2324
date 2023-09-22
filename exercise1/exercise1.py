@@ -6,7 +6,6 @@ Created on Thu Sep 14 15:37:29 2023
 """
 
 import numpy as np
-import random 
 from sklearn.linear_model import LinearRegression,Lasso,Ridge
 from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
@@ -15,9 +14,8 @@ from sklearn.model_selection import cross_validate
 x_train=np.load("X_train_regression1.npy") #shape -> (15,10)
 y_train=np.load("y_train_regression1.npy") #shape -> (15,1)
 
-print(y_train.shape)
 ## CENTERING INPUT DATA
-x_train=x_train - np.mean(x_train,axis=0) #axis=0 -> por coluna
+#x_train=x_train - np.mean(x_train,axis=0) #axis=0 -> por coluna
 
 
 n_examples,n_features=x_train.shape
@@ -26,12 +24,13 @@ column_of_ones=np.ones((n_examples,1)) #shape (15,1)
 X_train=np.hstack((column_of_ones,x_train)) #shape -> (15,11)
 
 
-#Beta=np.dot(np.dot(np.linalg.inv(np.dot(X_train.T,X_train)),X_train.T),y_train) # (11,1)
-#y_pred=np.dot(X_train,Beta)
+# Beta=np.dot(np.dot(np.linalg.inv(np.dot(X_train.T,X_train)),X_train.T),y_train) # (11,1)
+# y_pred=np.dot(X_train,Beta)
 
 regr = LinearRegression()
 
 regr.fit(X_train,y_train)
+print(mean_squared_error(y_true=y_train,y_pred=regr.predict(X_train)))
 
 
 scores=(-1)*cross_validate(
@@ -48,7 +47,7 @@ best_mean_score=np.mean(scores)
 best_method="linear"
 best_alpha=0
 
-print(best_alpha,best_method,best_mean_score,np.std(scores))
+print(best_alpha,best_method,best_mean_score)
 
 for alpha in alphas:
     for method in ["ridge","lasso"]:
@@ -59,8 +58,7 @@ for alpha in alphas:
         model.fit(X_train,y_train)
         scores=(-1)*cross_validate(model, X_train, y_train, cv=5, scoring=('r2', 'neg_mean_squared_error'))["test_neg_mean_squared_error"]
         score_mean=np.mean(scores)
-        score_std=np.std(scores)
-        print(alpha,method,score_mean,score_std)
+        print(alpha,method,score_mean)
         if score_mean<best_mean_score:
             best_mean_score=score_mean
             best_method=method
@@ -74,13 +72,15 @@ print("the best method is %s regression with an alpha of %s and a mean score of 
 
 
 #Computing the final predictions
-model=Lasso(alpha=0.1) 
+model=Lasso(alpha=10) 
+
 model.fit(X_train,y_train)
+print(model.coef_) 
 x_test=np.load("X_test_regression1.npy") #shape -> (15,10)
 n_examples,_=x_test.shape
 column_of_ones=np.ones((n_examples,1)) #shape (15,1)
 X_test=np.hstack((column_of_ones,x_test)) #shape -> (15,11)
-preds=model.predict(X_test).reshape(n_examples,1)
+y_test=model.predict(X_test).reshape(n_examples,1) #->(1000,1)
 
     
     
