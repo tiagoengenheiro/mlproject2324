@@ -36,7 +36,7 @@ X_train = x_train
 regr = LinearRegression()
 regr.fit(X_train,y_train)
 
-scores=(-1)*cross_validate(regr, X_train, y_train, cv=5, scoring=('r2', 'neg_mean_squared_error'), return_train_score=True)["test_neg_mean_squared_error"]
+scores=(-1)*cross_validate(regr, X_train, y_train, cv=5, scoring=('r2', 'neg_mean_squared_error'))["test_neg_mean_squared_error"]
 
 alphas = [0.01, 0.1, 1, 10, 100, 1000]
 
