@@ -1,81 +1,83 @@
 # -*- coding: utf-8 -*-
+"""
+
+@authors: Tiago e João
+
+"""
 import numpy as np
 from sklearn.linear_model import LinearRegression,Lasso,Ridge
 from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 from sklearn.model_selection import cross_validate
-
-x_train=np.load("X_train_regression1.npy") #shape -> (15,10)
-y_train=np.load("y_train_regression1.npy") #shape -> (15,1)
-
-#Centralized Data
-x_train=x_train - np.mean(x_train,axis=0) #axis=0 -> por coluna
-
-#Normalized Data
-#x_train= (x_train - np.min(x_train,axis=0)) / (np.max(x_train,axis=0) - np.min(x_train,axis=0))
-
-n_examples,n_features=x_train.shape
-column_of_ones=np.ones((n_examples,1)) #shape (15,1)
-X_train=np.hstack((column_of_ones,x_train)) #shape -> (15,11)
+import os
 
 alphas = [0.01, 0.1, 1, 10, 100, 1000]
-coefficients = []
 
-#Lasso weights plot
-for alpha in alphas:
-    model=Lasso(alpha, fit_intercept = False)
-    model.fit(X_train,y_train)
-    print(model.coef_.shape)
-    coefficients.append(model.coef_)
+save_folder = 'images'
+os.makedirs(save_folder, exist_ok=True)
+
+for prepro in ["","_zscore", "_norm"]:
+    X_train=np.load("X_train_regression1.npy") #shape -> (15,10)
+    y_train=np.load("y_train_regression1.npy") #shape -> (15,1)
+
+    if prepro == "_zscore":
+        X_train = (X_train - np.mean(X_train, axis=0)) / np.std(X_train, axis=0)
+        # y_train = (y_train - np.mean(y_train, axis=0)) / np.std(y_train, axis=0)
+    elif prepro == "_norm":
+        X_train= (X_train - np.min(X_train,axis=0)) / (np.max(X_train,axis=0) - np.min(X_train,axis=0))
+        # y_train= (y_train - np.min(y_train,axis=0)) / (np.max(y_train,axis=0) - np.min(y_train,axis=0))
+
+    ridge_coefficients = []
+    lasso_coefficients = []
+
+    for model_id in ["ridge","lasso"]:
+        for alpha in alphas:
+            if model_id=="ridge":
+                model=Ridge(alpha)
+                model.fit(X_train,y_train)
+                ridge_coefficients.append(model.coef_)
+            elif model_id == "lasso":
+                model=Lasso(alpha)
+                model.fit(X_train,y_train)
+                lasso_coefficients.append(model.coef_)
+
+    ridge_coefficients = np.array(ridge_coefficients) 
+    lasso_coefficients = np.array(lasso_coefficients)
+
+    plt.figure(figsize=(10, 6))  
+
+    for coef_index in range(lasso_coefficients.shape[1]):
+        plt.plot(alphas, lasso_coefficients[:, coef_index], label=f'Coefficient {coef_index + 1}')
+
+    plt.xscale('log')  
+    plt.xlabel('Alpha (Log Scale)')
+    plt.ylabel('Coefficient Value')
+    plt.title('Lasso Coefficient Paths')
+    plt.legend()
+    plt.grid(True)
+
+    filename = f'lasso_coef_{prepro}.png'
+    save_path = os.path.join(save_folder, filename)
+    plt.savefig(save_path)
+
+    plt.figure(figsize=(10, 6))  
     
-coefficients = np.array(coefficients) 
+    ridge_coefficients = ridge_coefficients.reshape(6, 10)
 
-print(coefficients.shape)
+    for coef_index in range(ridge_coefficients.shape[1]):
+        plt.plot(alphas, ridge_coefficients[:, coef_index], label=f'Coefficient {coef_index + 1}')
 
-plt.figure(figsize=(10, 6))  
+    plt.xscale('log')
+    plt.xlabel('Alpha (Log Scale)')
+    plt.ylabel('Coefficient Value')
+    plt.title('Ridge Coefficients')
+    plt.legend()
+    plt.grid(True)
 
-for coef_index in range(coefficients.shape[1]):
-    plt.plot(alphas, coefficients[:, coef_index], label=f'Coefficient {coef_index + 1}')
-
-plt.xscale('log')  
-plt.xlabel('Alpha (Log Scale)')
-plt.ylabel('Coefficient Value')
-plt.title('Lasso Coefficient Paths')
-plt.legend()
-plt.grid(True)
-# plt.show()
-
-
-#Ridge weights plot
-# for alpha in alphas:
-#     model=Ridge(alpha)
-#     model.fit(X_train,y_train)
-#     print(model.coef_.shape)
-#     coefficients.append(model.coef_)
-    
-# coefficients = np.array(coefficients) 
-
-# plt.figure(figsize=(10, 6))  
-
-# print(coefficients.shape)
-
-# coefficients = coefficients.reshape(6, 11)
-
-# print(coefficients.shape)
-
-# for coef_index in range(coefficients.shape[1]):
-#     plt.plot(alphas, coefficients[:, coef_index], label=f'Coefficient {coef_index + 1}')
-
-# plt.xscale('log')
-# plt.xlabel('Alpha (Log Scale)')
-# plt.ylabel('Coefficient Value')
-# plt.title('Ridge Coefficients')
-# plt.legend()
-# plt.grid(True)
-# plt.show()
+    filename = f'ridge_coef_{prepro}.png'
+    save_path = os.path.join(save_folder, filename)
+    plt.savefig(save_path)
 
 
-
-plt.savefig('lasso_coef3.png')
     
     

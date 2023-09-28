@@ -2,7 +2,7 @@
 """
 Created on Thu Sep 14 15:37:29 2023
 
-@author: Tiago
+@authors: Tiago e João
 """
 
 import numpy as np
@@ -16,7 +16,6 @@ y_train=np.load("y_train_regression1.npy") #shape -> (15,1)
 
 # Normalized Data
 # x_train= (x_train - np.min(x_train,axis=0)) / (np.max(x_train,axis=0) - np.min(x_train,axis=0))
-
 
 #Since Sklearn models already center the data by default there is no need to add the bias column to X
 
@@ -82,6 +81,7 @@ X_test=np.load("X_test_regression1.npy") #shape -> (15,10)
 n_examples,_=X_test.shape
 y_test=model.predict(X_test).reshape(n_examples,1) #->(1000,1)
 np.save("y_test_regression1.npy",y_test)
-
+y_test=np.load("y_test_regression1.npy")
+print(y_test.shape)
     
     
