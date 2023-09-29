@@ -16,16 +16,9 @@ alphas = [0.01, 0.1, 1, 10, 100, 1000]
 save_folder = 'images'
 os.makedirs(save_folder, exist_ok=True)
 
-for prepro in ["","_zscore", "_norm"]:
-    X_train=np.load("X_train_regression1.npy") #shape -> (15,10)
-    y_train=np.load("y_train_regression1.npy") #shape -> (15,1)
-
-    if prepro == "_zscore":
-        X_train = (X_train - np.mean(X_train, axis=0)) / np.std(X_train, axis=0)
-        # y_train = (y_train - np.mean(y_train, axis=0)) / np.std(y_train, axis=0)
-    elif prepro == "_norm":
-        X_train= (X_train - np.min(X_train,axis=0)) / (np.max(X_train,axis=0) - np.min(X_train,axis=0))
-        # y_train= (y_train - np.min(y_train,axis=0)) / (np.max(y_train,axis=0) - np.min(y_train,axis=0))
+for prepro in [""]:
+    X_train=np.load("X_train_regression2.npy") #shape -> (15,10)
+    y_train=np.load("y_train_regression2.npy") #shape -> (15,1)
 
     ridge_coefficients = []
     lasso_coefficients = []
@@ -35,24 +28,26 @@ for prepro in ["","_zscore", "_norm"]:
             if model_id=="ridge":
                 model=Ridge(alpha)
                 model.fit(X_train,y_train)
-                ridge_coefficients.append(model.coef_)
+                ridge_coefficients.append(np.squeeze(model.coef_))
             elif model_id == "lasso":
                 model=Lasso(alpha)
                 model.fit(X_train,y_train)
                 lasso_coefficients.append(model.coef_)
+                print(model.coef_.shape)
+
 
     ridge_coefficients = np.array(ridge_coefficients) 
     lasso_coefficients = np.array(lasso_coefficients)
 
-    plt.figure(figsize=(10, 6))  
-
+    plt.figure(figsize=(10, 6))
+    print(lasso_coefficients.shape)  
     for coef_index in range(lasso_coefficients.shape[1]):
         plt.plot(alphas, lasso_coefficients[:, coef_index], label=f'Coefficient {coef_index + 1}')
 
     plt.xscale('log')  
     plt.xlabel('Alpha (Log Scale)')
     plt.ylabel('Coefficient Value')
-    plt.title('Lasso Coefficient Paths')
+    plt.title('Lasso - Coefficient Variation')
     plt.legend()
     plt.grid(True)
 
@@ -62,8 +57,6 @@ for prepro in ["","_zscore", "_norm"]:
 
     plt.figure(figsize=(10, 6))  
     
-    ridge_coefficients = ridge_coefficients.reshape(6, 10)
-
     for coef_index in range(ridge_coefficients.shape[1]):
         plt.plot(alphas, ridge_coefficients[:, coef_index], label=f'Coefficient {coef_index + 1}')
 

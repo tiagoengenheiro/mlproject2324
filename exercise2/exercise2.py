@@ -7,23 +7,25 @@ Created on Thu Sep 14 15:37:29 2023
 
 import numpy as np
 from sklearn.linear_model import LinearRegression,Lasso,Ridge
-from sklearn.metrics import mean_squared_error, r2_score
-import matplotlib.pyplot as plt
 from sklearn.model_selection import cross_validate
+import pandas as pd
+import matplotlib.pyplot as plt
+X_train=np.load("X_train_regression2.npy") #shape -> (100, 4)
+y_train=np.load("y_train_regression2.npy") #shape -> (100, 1)
+print(X_train.shape,y_train.shape)
+df = pd.DataFrame(np.hstack((X_train,y_train)))
 
-X_train=np.load("X_train_regression1.npy") #shape -> (15,10)
-y_train=np.load("y_train_regression1.npy") #shape -> (15,1)
+df_pos=df[df[4]>0]
+df_neg=df[df[4]<0]
 
-# Rescaling (min-max normalization)
-# X_train= (X_train - np.min(X_train,axis=0)) / (np.max(X_train,axis=0) - np.min(X_train,axis=0))
-# y_train= (y_train - np.min(y_train,axis=0)) / (np.max(y_train,axis=0) - np.min(y_train,axis=0))
+# X_train=X_train[y_train[:,0]>0]
+# y_train=y_train[y_train[:,0]>0]
 
-#Since Sklearn models already center the data by default there is no need to add the bias column to X
+# print(df_pos.corr())
+# print(df_neg.corr())
+# print(df.corr())
 
-# Closed form
-# Beta=np.dot(np.dot(np.linalg.inv(np.dot(X_train.T,X_train)),X_train.T),y_train) # (11,1)
-# y_pred=np.dot(X_train,Beta)
-
+#print(df.corr())
 #Linear predictor
 regr = LinearRegression()
 regr.fit(X_train,y_train)
@@ -32,10 +34,11 @@ regr.fit(X_train,y_train)
 scores=(-1)*cross_validate(regr, X_train, y_train, cv=5, scoring=('r2', 'neg_mean_squared_error'))["test_neg_mean_squared_error"]
 best_mean_score=np.mean(scores) #mean of the MSE for 5 folds
 
+
 #Defining a cycle to get the best model among the models: Linear, Lasso and Ridge
 
 #Alphas used for both Ridge and Lasso Regression models
-alphas = [0.01, 0.1, 1, 10, 100, 1000]
+alphas = [0.001,0.01, 0.1, 1, 10, 100, 1000]
 
 best_model="linear"
 best_alpha=0
@@ -55,6 +58,7 @@ for alpha in alphas:
         # print(best_alpha,best_model,best_mean_score)
         print(alpha,model,score_mean)
 
+
         if score_mean<best_mean_score:
             best_mean_score=score_mean
             best_model=model
@@ -66,18 +70,17 @@ print("the best model is %s regression with an alpha of %s and a mean score of %
     best_alpha,
     best_mean_score))
 
+# Print the correlation matrix
+#Pequena contribuição da 1ºa e 2a feat independente
+#Pouca contribuição da terceira feat
 
-## Best model is Lasso with alpha=0.1
+# print(len(y_train[y_train<0]))
+# plt.hist(y_train, bins=50, edgecolor='k')  # You can adjust the number of bins as needed
 
-#Fitting the data with the best model
-model=Lasso(alpha=0.1) 
-model.fit(X_train,y_train)
+# # Add labels and a title
+# plt.xlabel('Variable Values')
+# plt.ylabel('Frequency')
+# plt.title('Histogram of My Variable')
 
-X_test=np.load("X_test_regression1.npy") #shape -> (15,10)
-n_examples,_=X_test.shape
-y_test=model.predict(X_test).reshape(n_examples,1) #->(1000,1)
-np.save("y_test_regression1.npy",y_test)
-y_test=np.load("y_test_regression1.npy")
-print(y_test.shape)
-    
-    
+# # Show the plot
+# plt.show()
