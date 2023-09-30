@@ -14,16 +14,31 @@ X_train=np.load("X_train_regression2.npy") #shape -> (100, 4)
 y_train=np.load("y_train_regression2.npy") #shape -> (100, 1)
 print(X_train.shape,y_train.shape)
 df = pd.DataFrame(np.hstack((X_train,y_train)))
+threshold=0
+df_pos=df[df[4]>threshold]
+df_neg=df[df[4]<threshold]
 
-df_pos=df[df[4]>0]
-df_neg=df[df[4]<0]
+print(len(y_train[y_train<0]))
+bins=40
+plt.hist(y_train, bins=bins, edgecolor='k')  # You can adjust the number of bins as needed
 
-# X_train=X_train[y_train[:,0]>0]
-# y_train=y_train[y_train[:,0]>0]
+# Add labels and a title
+plt.xlabel('Variable Values')
+plt.ylabel('Frequency')
+plt.title('Histogram of Output')
+print(np.mean(y_train))
+print(np.std(y_train))
+# Show the plot
+plt.savefig(f"images/output_histogram_{bins}_bins")
+print("std before",np.mean(y_train),np.std(y_train))
+X_train=X_train[y_train[:,0]>threshold]
+y_train=y_train[y_train[:,0]>threshold]
 
-# print(df_pos.corr())
-# print(df_neg.corr())
-# print(df.corr())
+
+
+print("Corr Matrix with data after threshold \n",df_pos.corr())
+print("Corr Matrix with data before threshold \n",df_neg.corr())
+print("Corr Matrix with all data\n",df.corr())
 
 #print(df.corr())
 #Linear predictor
@@ -54,7 +69,7 @@ for alpha in alphas:
         model.fit(X_train,y_train)
         scores=(-1)*cross_validate(model, X_train, y_train, cv=5, scoring=('r2', 'neg_mean_squared_error'))["test_neg_mean_squared_error"]
         score_mean=np.mean(scores)
-        
+
         # print(best_alpha,best_model,best_mean_score)
         print(alpha,model,score_mean)
 
@@ -63,7 +78,7 @@ for alpha in alphas:
             best_mean_score=score_mean
             best_model=model
             best_alpha=alpha
-    
+
 #Best model - the one with the least mean MSE from crossvalidation with k=5
 print("the best model is %s regression with an alpha of %s and a mean score of %s" % (
     best_model,
@@ -74,13 +89,3 @@ print("the best model is %s regression with an alpha of %s and a mean score of %
 #Pequena contribuição da 1ºa e 2a feat independente
 #Pouca contribuição da terceira feat
 
-# print(len(y_train[y_train<0]))
-# plt.hist(y_train, bins=50, edgecolor='k')  # You can adjust the number of bins as needed
-
-# # Add labels and a title
-# plt.xlabel('Variable Values')
-# plt.ylabel('Frequency')
-# plt.title('Histogram of My Variable')
-
-# # Show the plot
-# plt.show()
