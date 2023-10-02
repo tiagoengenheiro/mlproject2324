@@ -5,10 +5,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def get_best_model(X_train,y_train):
-    regr = LinearRegression()
-    regr.fit(X_train,y_train)
+    model = LinearRegression()
+    model.fit(X_train,y_train)
     #Running crossvalidation on the regular Linear Regression
-    scores=(-1)*cross_validate(regr, X_train, y_train, cv=5, scoring=('r2', 'neg_mean_squared_error'))["test_neg_mean_squared_error"]
+    scores=(-1)*cross_validate(model, X_train, y_train, cv=5, scoring=('r2', 'neg_mean_squared_error'))["test_neg_mean_squared_error"]
     best_mean_score=np.mean(scores) #mean of the MSE for 5 folds
 
 
@@ -17,14 +17,14 @@ def get_best_model(X_train,y_train):
     #Alphas used for both Ridge and Lasso Regression models
     alphas = [0.001,0.01, 0.1, 1, 10, 100, 1000]
 
-    best_model="linear"
+    best_model=model
     best_alpha=0
 
     #print(best_alpha,best_model,best_mean_score)
 
     for alpha in alphas:
-        for model in ["ridge","lasso"]:
-            if model=="ridge":
+        for model_names in ["ridge","lasso"]:
+            if model_names=="ridge":
                 model=Ridge(alpha)
             else:
                 model=Lasso(alpha)
@@ -42,10 +42,10 @@ def get_best_model(X_train,y_train):
                 best_alpha=alpha
 
     #Best model - the one with the least mean MSE from crossvalidation with k=5
-    # print("the best model is %s regression with an alpha of %s and a mean score of %s" % (
-    #     best_model,
-    #     best_alpha,
-    #     best_mean_score))
+    print("the best model is %s regression with an alpha of %s and a mean score of %s" % (
+        best_model,
+        best_alpha,
+        best_mean_score))
     return best_model,best_mean_score
 
 def fit_linear_models(X_train,y_train,X_train_1,y_train_1,X_train_2,y_train_2):
