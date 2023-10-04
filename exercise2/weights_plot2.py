@@ -40,7 +40,11 @@ for prepro in [""]:
     lasso_coefficients = np.array(lasso_coefficients)
 
     plt.figure(figsize=(10, 6))
-    print(lasso_coefficients.shape)  
+    print(lasso_coefficients.shape) 
+ 
+    alphas = np.array(alphas)
+    print(alphas.shape)
+
     for coef_index in range(lasso_coefficients.shape[1]):
         plt.plot(alphas, lasso_coefficients[:, coef_index], label=f'Coefficient {coef_index + 1}')
 

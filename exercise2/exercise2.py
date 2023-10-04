@@ -10,6 +10,8 @@ from sklearn.linear_model import LinearRegression,Lasso,Ridge
 from sklearn.model_selection import cross_validate
 import pandas as pd
 import matplotlib.pyplot as plt
+
+
 X_train=np.load("X_train_regression2.npy") #shape -> (100, 4)
 y_train=np.load("y_train_regression2.npy") #shape -> (100, 1)
 print(X_train.shape,y_train.shape)
@@ -21,6 +23,7 @@ df_neg=df[df[4]<0]
 # X_train=X_train[y_train[:,0]>0]
 # y_train=y_train[y_train[:,0]>0]
 
+print(X_train)
 # print(df_pos.corr())
 # print(df_neg.corr())
 # print(df.corr())
