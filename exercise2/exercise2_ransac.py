@@ -23,9 +23,9 @@ min_mse=(np.inf,np.inf)
 model1,model2=None,None
 best_n_samples=0
 th=0
-for threshold in np.arange(0.5,1.0,0.05):
+for threshold in [MAD]:
     for n_samples in range(1,30,1):
-        reg = RANSACRegressor(random_state=42,min_samples=n_samples,max_trials=200,residual_threshold=threshold,loss='squared_error')
+        reg = RANSACRegressor(random_state=42,min_samples=n_samples,max_trials=100,residual_threshold=threshold,loss='squared_error')
         reg.fit(X_train_init,y_train_init)
     # print("Number of inliers",len(reg.inlier_mask_[reg.inlier_mask_==True]))
         model1,mse1=get_best_model(X_train_init[reg.inlier_mask_],y_train_init[reg.inlier_mask_])
@@ -50,4 +50,4 @@ results=np.hstack((model1.predict(X_train_init),model2.predict(X_train_init).res
 results = np.square(results-y_train_init)
 results = np.min(results,axis=1)
 results = np.sum(results,axis=0)
-print(results)
+print("SSE:",results)

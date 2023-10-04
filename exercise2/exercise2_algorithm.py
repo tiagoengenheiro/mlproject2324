@@ -33,7 +33,7 @@ results=np.hstack((model1.predict(X_train).reshape(100,1),model2.predict(X_train
 results = np.square(results-y_train)
 results = np.min(results,axis=1)
 results = np.sum(results,axis=0)
-print(results)
+print("SSE:",results)
 
 
 
