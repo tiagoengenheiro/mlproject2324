@@ -1,19 +1,53 @@
-from sklearn.cluster import KMeans
 import numpy as np
-import numpy as np
-from sklearn.linear_model import LinearRegression,Lasso,Ridge
+from sklearn.linear_model import LinearRegression,Lasso,Ridge,RANSACRegressor
 from sklearn.model_selection import cross_validate
 import pandas as pd
 import matplotlib.pyplot as plt
-from sklearn.linear_model import RANSACRegressor,TheilSenRegressor,HuberRegressor
+from matplotlib import pyplot
+from sklearn.preprocessing import RobustScaler
 from utils import get_best_model
+X_train_init=np.load("X_train_regression2.npy") #shape -> (100, 4)
+y_train_init=np.load("y_train_regression2.npy") #shape -> (100, 1)
 
-X_train=np.load("X_train_regression2.npy") #shape -> (100, 4)
-y_train=np.load("y_train_regression2.npy") #shape -> (100, 1)
-print(get_best_model(X_train,y_train))
-n_examples,n_features=X_train.shape
-reg = HuberRegressor().fit(X_train, y_train)
+n_examples,n_features=X_train_init.shape
 
-scores=(-1)*cross_validate(reg, X_train, y_train, cv=5, scoring=('r2', 'neg_mean_squared_error'))["test_neg_mean_squared_error"]
-best_mean_score=np.mean(scores)
-print(best_mean_score)
+# RS = RobustScaler(with_centering=True, with_scaling=False) ##RS = StandardScaler(with_centering=True, with_scaling=False)
+# Outliers
+# X_train = RS.fit_transform(X_train_init)
+# y_train = RS.fit_transform(y_train_init)
+# MAD=np.median(np.abs(y_train_init-np.median(y_train_init)))
+print(len(y_train_init[y_train_init>1.2]))
+MAD=np.median(np.abs(y_train_init-np.median(y_train_init))) #0.9395742394919429
+MAE=np.mean(np.abs(y_train_init-np.mean(y_train_init)))
+min_mse=(np.inf,np.inf)
+model1,model2=None,None
+best_n_samples=0
+th=0
+for threshold in np.arange(0.5,1.0,0.05):
+    for n_samples in range(1,30,1):
+        reg = RANSACRegressor(random_state=42,min_samples=n_samples,max_trials=200,residual_threshold=threshold,loss='squared_error')
+        reg.fit(X_train_init,y_train_init)
+    # print("Number of inliers",len(reg.inlier_mask_[reg.inlier_mask_==True]))
+        model1,mse1=get_best_model(X_train_init[reg.inlier_mask_],y_train_init[reg.inlier_mask_])
+        model2,mse2=get_best_model(X_train_init[~reg.inlier_mask_],y_train_init[~reg.inlier_mask_])
+        print(n_samples,"MSE1",mse1,"MSE2",mse2)
+        if (mse1+mse2) < sum(min_mse):
+            min_mse=(mse1,mse2)
+            best_n_samples=n_samples
+            th=threshold
+print(threshold)
+print(best_n_samples)
+print(model1,min_mse[0])
+print(model2,min_mse[1])
+
+reg = RANSACRegressor(random_state=42,min_samples=best_n_samples,residual_threshold=threshold,loss='squared_error')
+reg.fit(X_train_init,y_train_init)
+# print("Number of inliers",len(reg.inlier_mask_[reg.inlier_mask_==True]))
+model1,mse1=get_best_model(X_train_init[reg.inlier_mask_],y_train_init[reg.inlier_mask_])
+model2,mse2=get_best_model(X_train_init[~reg.inlier_mask_],y_train_init[~reg.inlier_mask_])
+#results=np.hstack((RS.inverse_transform(model1.predict(X_train_init)),RS.inverse_transform(model2.predict(X_train_init))))
+results=np.hstack((model1.predict(X_train_init),model2.predict(X_train_init).reshape(n_examples,1)))
+results = np.square(results-y_train_init)
+results = np.min(results,axis=1)
+results = np.sum(results,axis=0)
+print(results)

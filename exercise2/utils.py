@@ -42,10 +42,10 @@ def get_best_model(X_train,y_train):
                 best_alpha=alpha
 
     #Best model - the one with the least mean MSE from crossvalidation with k=5
-    print("the best model is %s regression with an alpha of %s and a mean score of %s" % (
-        best_model,
-        best_alpha,
-        best_mean_score))
+    # print("the best model is %s regression with an alpha of %s and a mean score of %s" % (
+    #     best_model,
+    #     best_alpha,
+    #     best_mean_score))
     return best_model,best_mean_score
 
 def fit_linear_models(X_train,y_train,X_train_1,y_train_1,X_train_2,y_train_2):
