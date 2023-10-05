@@ -8,7 +8,8 @@ from sklearn.preprocessing import RobustScaler
 from utils import get_best_model
 X_train_init=np.load("X_train_regression2.npy") #shape -> (100, 4)
 y_train_init=np.load("y_train_regression2.npy") #shape -> (100, 1)
-
+X_test_init=np.load("X_test_regression2.npy")
+print(X_test_init.shape)
 n_examples,n_features=X_train_init.shape
 
 # RS = RobustScaler(with_centering=True, with_scaling=False) ##RS = StandardScaler(with_centering=True, with_scaling=False)
@@ -16,7 +17,6 @@ n_examples,n_features=X_train_init.shape
 # X_train = RS.fit_transform(X_train_init)
 # y_train = RS.fit_transform(y_train_init)
 # MAD=np.median(np.abs(y_train_init-np.median(y_train_init)))
-print(len(y_train_init[y_train_init>1.2]))
 MAD=np.median(np.abs(y_train_init-np.median(y_train_init))) #0.9395742394919429
 MAE=np.mean(np.abs(y_train_init-np.mean(y_train_init)))
 min_mse=(np.inf,np.inf)
@@ -24,8 +24,11 @@ model1,model2=None,None
 best_n_samples=0
 th=0
 for threshold in [MAD]:
-    for n_samples in range(1,30,1):
-        reg = RANSACRegressor(random_state=42,min_samples=n_samples,max_trials=100,residual_threshold=threshold,loss='squared_error')
+    print("Threshold:", threshold)
+    print("How many values above threshold:",len(y_train_init[y_train_init>threshold]))
+    max_n_samples=len(y_train_init[y_train_init>threshold])
+    for n_samples in range(1,10,1):
+        reg = RANSACRegressor(random_state=0,min_samples=n_samples,max_trials=200,residual_threshold=threshold,loss='absolute_error',stop_probability=1.0)
         reg.fit(X_train_init,y_train_init)
     # print("Number of inliers",len(reg.inlier_mask_[reg.inlier_mask_==True]))
         model1,mse1=get_best_model(X_train_init[reg.inlier_mask_],y_train_init[reg.inlier_mask_])
@@ -35,14 +38,20 @@ for threshold in [MAD]:
             min_mse=(mse1,mse2)
             best_n_samples=n_samples
             th=threshold
-print(threshold)
-print(best_n_samples)
+    print("Best MS1",min_mse[0],"Best MS2",min_mse[1])
+    print("\n")
+print("Best Threshold",threshold)
+print("Best number of samples",best_n_samples)
 print(model1,min_mse[0])
 print(model2,min_mse[1])
 
-reg = RANSACRegressor(random_state=42,min_samples=best_n_samples,residual_threshold=threshold,loss='squared_error')
+reg = RANSACRegressor(random_state=0,min_samples=best_n_samples,residual_threshold=threshold,loss='absolute_error')
 reg.fit(X_train_init,y_train_init)
-# print("Number of inliers",len(reg.inlier_mask_[reg.inlier_mask_==True]))
+print("Number of inliers",len(reg.inlier_mask_[reg.inlier_mask_==True]))
+print("List of Outliers indexes",[i for i,x in enumerate(reg.inlier_mask_) if x==False])
+print(reg.n_skips_no_inliers_)
+print(reg.n_trials_)
+
 model1,mse1=get_best_model(X_train_init[reg.inlier_mask_],y_train_init[reg.inlier_mask_])
 model2,mse2=get_best_model(X_train_init[~reg.inlier_mask_],y_train_init[~reg.inlier_mask_])
 #results=np.hstack((RS.inverse_transform(model1.predict(X_train_init)),RS.inverse_transform(model2.predict(X_train_init))))

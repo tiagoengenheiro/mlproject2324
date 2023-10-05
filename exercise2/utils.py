@@ -48,7 +48,7 @@ def get_best_model(X_train,y_train):
     #     best_mean_score))
     return best_model,best_mean_score
 
-def fit_linear_models(X_train,y_train,X_train_1,y_train_1,X_train_2,y_train_2):
+def fit_linear_models(X_train,y_train,X_train_1,y_train_1,X_train_2,y_train_2,final=False):
     regr1 = LinearRegression()
     regr2 = LinearRegression()
     regr1.fit(X_train_1,y_train_1)
@@ -60,6 +60,9 @@ def fit_linear_models(X_train,y_train,X_train_1,y_train_1,X_train_2,y_train_2):
     X_train_1=X_train[res_diff]
     X_train_2=X_train[~res_diff]
     y_train_2=y_train[~res_diff]
+    if final:
+        print("List of Model1 indexes",[i for i,x in enumerate(res_diff) if x==True])
+        print("List of Model2 indexes",[i for i,x in enumerate(res_diff) if x==False])
     return X_train_1,y_train_1,X_train_2,y_train_2
 
 
