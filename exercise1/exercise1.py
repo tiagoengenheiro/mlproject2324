@@ -14,16 +14,15 @@ from sklearn.model_selection import cross_validate
 X_train=np.load("X_train_regression1.npy") #shape -> (15,10)
 y_train=np.load("y_train_regression1.npy") #shape -> (15,1)
 
-# Normalized Data
-# x_train= (x_train - np.min(x_train,axis=0)) / (np.max(x_train,axis=0) - np.min(x_train,axis=0))
+# Rescaling (min-max normalization)
+# X_train= (X_train - np.min(X_train,axis=0)) / (np.max(X_train,axis=0) - np.min(X_train,axis=0))
+# y_train= (y_train - np.min(y_train,axis=0)) / (np.max(y_train,axis=0) - np.min(y_train,axis=0))
 
 #Since Sklearn models already center the data by default there is no need to add the bias column to X
 
 # Closed form
 # Beta=np.dot(np.dot(np.linalg.inv(np.dot(X_train.T,X_train)),X_train.T),y_train) # (11,1)
 # y_pred=np.dot(X_train,Beta)
-
-n_examples,n_features=X_train.shape
 
 #Linear predictor
 regr = LinearRegression()
@@ -32,7 +31,6 @@ regr.fit(X_train,y_train)
 #Running crossvalidation on the regular Linear Regression
 scores=(-1)*cross_validate(regr, X_train, y_train, cv=5, scoring=('r2', 'neg_mean_squared_error'))["test_neg_mean_squared_error"]
 best_mean_score=np.mean(scores) #mean of the MSE for 5 folds
-
 
 #Defining a cycle to get the best model among the models: Linear, Lasso and Ridge
 
@@ -57,7 +55,6 @@ for alpha in alphas:
         # print(best_alpha,best_model,best_mean_score)
         print(alpha,model,score_mean)
 
-
         if score_mean<best_mean_score:
             best_mean_score=score_mean
             best_model=model
@@ -68,7 +65,6 @@ print("the best model is %s regression with an alpha of %s and a mean score of %
     best_model,
     best_alpha,
     best_mean_score))
-
 
 
 ## Best model is Lasso with alpha=0.1
