@@ -1,10 +1,5 @@
 import numpy as np
-from sklearn.linear_model import LinearRegression,Lasso,Ridge,RANSACRegressor
-from sklearn.model_selection import cross_validate
-import pandas as pd
-import matplotlib.pyplot as plt
-from matplotlib import pyplot
-from sklearn.preprocessing import RobustScaler
+from sklearn.linear_model import RANSACRegressor
 from utils import get_best_model
 X_train_init=np.load("X_train_regression2.npy") #shape -> (100, 4)
 y_train_init=np.load("y_train_regression2.npy") #shape -> (100, 1)
@@ -21,7 +16,7 @@ for threshold in [MAD,MAE]:
     print("Threshold:", threshold)
     print("How many values above threshold:",len(y_train_init[y_train_init>threshold]))
     max_n_samples=len(y_train_init[y_train_init>threshold])
-    for n_samples in range(1,40,1):
+    for n_samples in range(1,100,1):
         reg = RANSACRegressor(random_state=0,min_samples=n_samples,max_trials=200,residual_threshold=threshold,loss='absolute_error',stop_probability=1.0)
         reg.fit(X_train_init,y_train_init)
         #print("Number of inliers",len(reg.inlier_mask_[reg.inlier_mask_==True]))
