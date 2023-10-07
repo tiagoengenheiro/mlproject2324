@@ -44,10 +44,8 @@ reg.fit(X_train_init,y_train_init)
 print("Number of inliers:",len(reg.inlier_mask_[reg.inlier_mask_==True]))
 print("List of Outliers indexes:",[i for i,x in enumerate(reg.inlier_mask_) if x==False])
 
-
 model1,mse1=get_best_model(X_train_init[reg.inlier_mask_],y_train_init[reg.inlier_mask_])
 model2,mse2=get_best_model(X_train_init[~reg.inlier_mask_],y_train_init[~reg.inlier_mask_])
-#results=np.hstack((RS.inverse_transform(model1.predict(X_train_init)),RS.inverse_transform(model2.predict(X_train_init))))
 results=np.hstack((model1.predict(X_train_init),model2.predict(X_train_init).reshape(n_examples,1)))
 results = np.square(results-y_train_init)
 results = np.min(results,axis=1)
