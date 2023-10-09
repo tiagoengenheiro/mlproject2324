@@ -7,8 +7,7 @@ Created on Thu Sep 14 15:37:29 2023
 
 import numpy as np
 from sklearn.linear_model import LinearRegression,Lasso,Ridge
-from sklearn.metrics import mean_squared_error, r2_score
-import matplotlib.pyplot as plt
+
 from sklearn.model_selection import cross_validate
 
 X_train=np.load("X_train_regression1.npy") #shape -> (15,10)
