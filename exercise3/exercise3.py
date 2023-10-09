@@ -22,10 +22,11 @@ model.add(Dense(256, input_shape=(n_features,), activation="sigmoid"))
 model.add(Dense(128, activation="sigmoid"))
 model.add(Dense(1, activation="sigmoid"))
 print(model.output_shape)
-sgd = SGD(0.01)
+sgd = SGD(1e-4)
 model.compile(loss="binary_crossentropy", optimizer=sgd,metrics=["accuracy"])
-model.fit(X_train, y_train, validation_data=(X_val, y_val),
+H = model.fit(X_train, y_train, validation_data=(X_val, y_val),
 	epochs=100, batch_size=128)
+print(H.history)
 
 predictions = model.predict(X_test, batch_size=128)
 print(predictions)
