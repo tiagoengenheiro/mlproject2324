@@ -23,20 +23,15 @@ print("Split: Y_val",len(y_val),"Class 0:",len(y_val[y_val==0]),"Class 1:",len(y
 _,n_features=X_train.shape
 print("N of features:",n_features)
 
-
-#Use prunning
-
 class FFN(nn.Module):
 
     def __init__(self):
         super(FFN, self).__init__()
-        self.fc1=nn.Linear(n_features, 1024)
-        self.fc2=nn.Linear(1024, 256)
-        self.fc3=nn.Linear(256, 1)
+        self.fc1=nn.Linear(n_features, 256)
+        self.fc2=nn.Linear(256, 1)
     def forward(self, x):
         x=F.tanh(self.fc1(x))
-        x=F.tanh(self.fc2(x))
-        x=F.sigmoid(self.fc3(x))
+        x=F.sigmoid(self.fc2(x))
         return x
     
 class FFNDataset(Dataset):
@@ -90,7 +85,7 @@ def test_loop(dataloader, model, loss_fn):
 model=FFN()
 learning_rate = 1e-3
 batch_size = 64
-epochs = 100
+epochs = 50
 loss_fn = nn.BCELoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
@@ -111,4 +106,8 @@ for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------------")
     train_loop(train_dataloader, model, loss_fn, optimizer)
     test_loop(val_dataloader, model, loss_fn)
-print("Done!")
+print("Done Traning!")
+
+val_dataloader = DataLoader(FFNDataset(X_test,y_test), batch_size=batch_size)
+print("Test Results")
+test_loop(val_dataloader,model,loss_fn)
