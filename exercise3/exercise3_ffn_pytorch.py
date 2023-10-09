@@ -46,7 +46,6 @@ class FFNDataset(Dataset):
         return self.X[idx], self.y[idx]
 
 def train_loop(dataloader, model, loss_fn, optimizer):
-    size = len(dataloader.dataset)
     # Set the model to training mode - important for batch normalization and dropout layers
     # Unnecessary in this situation but added for best practices
     model.train()
@@ -68,7 +67,8 @@ def test_loop(dataloader, model, loss_fn):
     model.eval()
     size = len(dataloader.dataset)
     num_batches = len(dataloader)
-    test_loss, correct = 0, 0
+    test_loss=0
+    TP,FP,FN,TN = 0,0,0,0
 
     # Evaluating the model with torch.no_grad() ensures that no gradients are computed during test mode
     # also serves to reduce unnecessary gradient computations and memory usage for tensors with requires_grad=True
@@ -76,10 +76,22 @@ def test_loop(dataloader, model, loss_fn):
         for X, y in dataloader:
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
-            correct += (torch.round(pred) == y).sum().item()
+            pred=torch.round(pred) #round to 0
+            for i,y_hat in enumerate(pred):
+                if y_hat==y[i]:
+                    if y_hat==1: 
+                        TP+=1
+                    else:
+                        TN+=1
+                else:
+                    if y_hat==1: #Predicted as Positive but it's Negative
+                        FP+=1
+                    else: #Predicted as Negative but it's Positive
+                        FN+=1
+        print(TP,TN,FP,FN,size,TP+FP+FN+TN)
+    balanced_acc =1/2*(TP/(TP+FN)+TN/(TN+FP))
     test_loss /= num_batches
-    correct /= size
-    print(f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+    print(f"Test Error: \n Balanced Accuracy: {(100*balanced_acc):>0.1f}%, Avg loss: {test_loss:>8f} \n")
 
 
 model=FFN()
@@ -93,14 +105,6 @@ train_dataloader = DataLoader(FFNDataset(X_train,y_train), batch_size=batch_size
 val_dataloader = DataLoader(FFNDataset(X_val,y_val), batch_size=batch_size)
 test_loss, correct = 0, 0
 
-# print(len(train_dataloader.dataset))
-# for batch, (X, y) in enumerate(train_dataloader):
-#     pred = model(X)
-#     print(loss_fn(pred,y))
-#     test_loss += loss_fn(pred, y).item() #loss from the all batch?
-#     correct += (torch.round(pred) == y).sum().item()
-#     print(correct)
-#     break
 
 for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------------")
