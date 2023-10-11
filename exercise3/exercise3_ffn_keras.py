@@ -7,6 +7,7 @@ from keras.optimizers import SGD,Adam
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
 from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
+import tensorflow
 X=np.load("Xtrain_Classification1.npy")
 y=np.load("ytrain_Classification1.npy")
 
@@ -30,6 +31,8 @@ class_weights = class_weight.compute_class_weight('balanced', classes=np.unique(
 class_weight_dict = dict(enumerate(class_weights))
 
 X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1) # 0.25 x 0.8 = 0.2
+sm = SMOTE(random_state=42)
+X_train,y_train=sm.fit_resample(X_train,y_train)
 #0.6 Train e 0.2 Val e 0.2 Test
 print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
 print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))

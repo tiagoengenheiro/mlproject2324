@@ -7,21 +7,20 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
 from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
 
+ #https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
 
 X=np.load("Xtrain_Classification1.npy")
+y=np.load("ytrain_Classification1.npy") #.reshape(X.shape[0],1)
 
-y=np.load("ytrain_Classification1.npy").reshape(X.shape[0],1)
-
+#Pre processing:
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1) #0.8 - 0.2 
 
 X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1) # 0.25 x 0.8 = 0.2
 
 # sm = SMOTE(random_state=42)
 # X_train,y_train=sm.fit_resample(X_train,y_train)
-# y_train=y_train.reshape(y_train.shape[0],1)
-
 #0.6 Train and 0.2 Val and 0.2 Test
 print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
 print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))
@@ -31,21 +30,38 @@ print("Split: Y_val",len(y_val),"Class 0:",len(y_val[y_val==0]),"Class 1:",len(y
 _,n_features=X_train.shape
 print("N of features:",n_features)
 
-class FFN(nn.Module):
+class CNN(nn.Module):
 
     def __init__(self):
-        super(FFN, self).__init__()
-        self.fc1=nn.Linear(n_features, 256)
-        self.fc2=nn.Linear(256, 1)
+        super(CNN, self).__init__()
+        # 1 input image channel, 6 output channels, 3x3 square convolution
+        # kernel
+        self.conv1 = nn.Conv2d(3, 10, 3) #shape = 6,26,26
+        self.conv2 = nn.Conv2d(10, 20, 3)  #shape = 16,11,11
+        # an affine operation: y = Wx + b
+        self.fc1 = nn.Linear(20 * 5 * 5, 120)  # 5*5 from image dimension
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 2) #64,2
+        self.dropout=nn.Dropout(0.5)
+
     def forward(self, x):
-        x=F.tanh(self.fc1(x))
-        x=F.sigmoid(self.fc2(x))
+        # Max pooling over a (2, 2) window
+        x = F.max_pool2d(F.relu(self.conv1(x)), (2, 2)) #shape = 6,13,13
+        # If the size is a square, you can specify with a single number
+        x = F.max_pool2d(F.relu(self.conv2(x)), 2) #shape=16,5,5
+        x = torch.flatten(x, 1) # flatten all dimensions except the batch dimension
+        x = self.dropout(x)
+        x = F.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = F.relu(self.fc2(x))
+        x = self.dropout(x)
+        x = F.softmax(self.fc3(x),dim=0) #Apply by columns
         return x
     
 class FFNDataset(Dataset):
     def __init__(self, X_array,y_array):
-        self.X=torch.tensor(X_array,dtype=torch.float32)
-        self.y=torch.tensor(y_array,dtype=torch.float32)
+        self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
+        self.y=torch.tensor(y_array,dtype=torch.float32).long()
 
     def __len__(self):
         return self.X.shape[0]
@@ -61,13 +77,12 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         # Compute prediction and loss
         pred = model(X)
         loss = loss_fn(pred, y)
-
         # Backpropagation
         loss.backward() #computed the loss for every parameter
         optimizer.step() #updates the parameters
         optimizer.zero_grad() #resets the gradients
-    loss, current = loss.item(), (batch + 1) * len(X)
-    print(f"loss: {loss:>7f}")
+    loss= loss.item()
+    print(f"Training loss: {loss:>7f}")
 
 def test_loop(dataloader, model, loss_fn):
     # Set the model to evaluation mode - important for batch normalization and dropout layers
@@ -84,30 +99,33 @@ def test_loop(dataloader, model, loss_fn):
         for X, y in dataloader:
             pred = model(X)
             test_loss += loss_fn(pred, y).item()
-            pred=torch.round(pred) #round to 0
+            pred=torch.argmax(pred,dim=1) #dim=1 is by row
             for i,y_hat in enumerate(pred):
-                if y_hat==y[i]:
+                if y_hat==y[i]: #If the predicted is equivalent to the Gold than it's True
                     if y_hat==1: 
                         TP+=1
                     else:
                         TN+=1
-                else:
+                else: #If the predicted is not equivalent to the Gold than it's False
                     if y_hat==1: #Predicted as Positive but it's Negative
                         FP+=1
                     else: #Predicted as Negative but it's Positive
                         FN+=1
+    #print(TP,TN,FP,FN,size,TP+FP+FN+TN)
     balanced_acc =1/2*(TP/(TP+FN)+TN/(TN+FP)) #1/2*(Sensivity+Specificity)
+    recall=TP/(TP+FN)
     test_loss /= num_batches
-    print(f"Validation Error: \n Balanced Accuracy: {(100*balanced_acc):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+    print(f" Balanced Accuracy: {(100*balanced_acc):>0.1f}%, Recall:{(100*recall):>0.1f}%, Avg loss: {test_loss:>8f} \n")
 
 
-model=FFN()
-learning_rate = 1e-2
-batch_size = 64
+model=CNN()
+learning_rate = 1e-1
+batch_size = 256
 epochs = 50
-loss_fn = nn.BCELoss()
+loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
+#Loads the data in a dataloader to control the batch and pre-processing easier
 train_dataloader = DataLoader(FFNDataset(X_train,y_train), batch_size=batch_size)
 val_dataloader = DataLoader(FFNDataset(X_val,y_val), batch_size=batch_size)
 test_loss, correct = 0, 0
@@ -119,6 +137,6 @@ for t in range(epochs):
     test_loop(val_dataloader, model, loss_fn)
 print("Done Traning!")
 
-test_dataloader = DataLoader(FFNDataset(X_test,y_test), batch_size=y_test.shape[0])
+val_dataloader = DataLoader(FFNDataset(X_test,y_test), batch_size=batch_size)
 print("Test Results")
-test_loop(test_dataloader,model,loss_fn)
+test_loop(val_dataloader,model,loss_fn)
