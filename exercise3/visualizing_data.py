@@ -1,15 +1,20 @@
 import numpy as np
 import random
 import matplotlib.pyplot as plt
+from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
+
 X=np.load("Xtrain_Classification1.npy")
 y=np.load("ytrain_Classification1.npy")
+sm = ADASYN(random_state=42)
+X,y=sm.fit_resample(X,y)
+
 X=X.reshape(X.shape[0],28,28,3)
 choices=sorted(np.arange(0,X.shape[0],1))
 print(y[0])
-num_of_samples=15
+num_of_samples=25
 indexes=random.sample(choices,num_of_samples)
 
-fig, axs = plt.subplots(nrows=3, ncols=5, figsize=(9, 6),
+fig, axs = plt.subplots(nrows=5, ncols=5, figsize=(9, 10),
                         subplot_kw={'xticks': [], 'yticks': []})
 
 
