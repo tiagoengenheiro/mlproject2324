@@ -7,6 +7,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
 from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
 
+seed=42
+torch.manual_seed(42)
+torch.cuda.manual_seed_all(42)
  #https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -19,7 +22,7 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1) # 0.25 x 0.8 = 0.2
 
-# sm = SMOTE(random_state=42)
+# sm = ADASYN(random_state=42)
 # X_train,y_train=sm.fit_resample(X_train,y_train)
 #0.6 Train and 0.2 Val and 0.2 Test
 print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
@@ -35,13 +38,12 @@ class CNN(nn.Module):
     def __init__(self):
         super(CNN, self).__init__()
         # 1 input image channel, 6 output channels, 3x3 square convolution
-        # kernel
+        # kernel 
         self.conv1 = nn.Conv2d(3, 10, 3) #shape = 6,26,26
         self.conv2 = nn.Conv2d(10, 20, 3)  #shape = 16,11,11
         # an affine operation: y = Wx + b
         self.fc1 = nn.Linear(20 * 5 * 5, 120)  # 5*5 from image dimension
-        self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 2) #64,2
+        self.fc2 = nn.Linear(120, 2)
         self.dropout=nn.Dropout(0.5)
 
     def forward(self, x):
@@ -50,12 +52,9 @@ class CNN(nn.Module):
         # If the size is a square, you can specify with a single number
         x = F.max_pool2d(F.relu(self.conv2(x)), 2) #shape=16,5,5
         x = torch.flatten(x, 1) # flatten all dimensions except the batch dimension
-        x = self.dropout(x)
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
-        x = F.relu(self.fc2(x))
-        x = self.dropout(x)
-        x = F.softmax(self.fc3(x),dim=0) #Apply by columns
+        x = F.softmax(self.fc2(x),dim=0) #Apply by columns
         return x
     
 class FFNDataset(Dataset):
@@ -68,6 +67,23 @@ class FFNDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
+    
+class EarlyStopper:
+    def __init__(self, patience=10, min_delta=0):
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.min_validation_loss = float('inf')
+
+    def early_stop(self, validation_loss):
+        if validation_loss < self.min_validation_loss:
+            self.min_validation_loss = validation_loss
+            self.counter = 0
+        elif validation_loss > (self.min_validation_loss + self.min_delta):
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False
 
 def train_loop(dataloader, model, loss_fn, optimizer):
     # Set the model to training mode - important for batch normalization and dropout layers
@@ -84,7 +100,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     loss= loss.item()
     print(f"Training loss: {loss:>7f}")
 
-def test_loop(dataloader, model, loss_fn):
+def test_loop(dataloader, model, loss_fn,mode="Validation"):
     # Set the model to evaluation mode - important for batch normalization and dropout layers
     # Unnecessary in this situation but added for best practices
     model.eval()
@@ -114,27 +130,34 @@ def test_loop(dataloader, model, loss_fn):
     #print(TP,TN,FP,FN,size,TP+FP+FN+TN)
     balanced_acc =1/2*(TP/(TP+FN)+TN/(TN+FP)) #1/2*(Sensivity+Specificity)
     recall=TP/(TP+FN)
+    specifcity=+TN/(TN+FP)
     test_loss /= num_batches
-    print(f" Balanced Accuracy: {(100*balanced_acc):>0.1f}%, Recall:{(100*recall):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+    print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specifcity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
+    return balanced_acc
 
-
+early_stopper = EarlyStopper(patience=3, min_delta=0)
 model=CNN()
-learning_rate = 1e-1
-batch_size = 256
-epochs = 50
+learning_rate = 1e-3
+batch_size = 8
+epochs = 30
 loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
 #Loads the data in a dataloader to control the batch and pre-processing easier
-train_dataloader = DataLoader(FFNDataset(X_train,y_train), batch_size=batch_size)
-val_dataloader = DataLoader(FFNDataset(X_val,y_val), batch_size=batch_size)
+train_dataloader = DataLoader(FFNDataset(X_train,y_train), batch_size=batch_size,shuffle=True)
+val_dataloader = DataLoader(FFNDataset(X_val,y_val), batch_size=batch_size,shuffle=True)
 test_loss, correct = 0, 0
 
 
 for t in range(epochs):
+    train_dataloader.dataset
     print(f"Epoch {t+1}\n-------------------------------")
     train_loop(train_dataloader, model, loss_fn, optimizer)
-    test_loop(val_dataloader, model, loss_fn)
+    print(f"Validation Results:")
+    validation_metric=test_loop(val_dataloader, model, loss_fn)
+    # if early_stopper.early_stop(validation_metric):
+    #     print("Early Stop")
+    #     break
 print("Done Traning!")
 
 val_dataloader = DataLoader(FFNDataset(X_test,y_test), batch_size=batch_size)

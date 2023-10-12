@@ -1,0 +1,4 @@
+Naive Bayes: Recall: 0.7687861271676301 Balanced Acc: 0.6803114309307539
+FFN com early stopping: Recall e ADASYN: 0.838150289017341  Balanced Accuracy: 0.7029341426533829 
+CNN sem Oversampling:  Recall:94.2%, Specificity:53.2%, Balanced Accuracy: 73.7%,  Avg loss: 0.667115 lr=e-3 e batch size=8
+CNN com ADASYN: Balanced Accuracy: 69.2%, Recall:79.2%, Avg loss: 0.688430 
