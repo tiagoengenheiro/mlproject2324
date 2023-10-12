@@ -8,8 +8,8 @@ from sklearn.metrics import balanced_accuracy_score
 from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
 
 seed=42
-torch.manual_seed(42)
-torch.cuda.manual_seed_all(42)
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
  #https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device}")
@@ -22,8 +22,8 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1) # 0.25 x 0.8 = 0.2
 
-# sm = ADASYN(random_state=42)
-# X_train,y_train=sm.fit_resample(X_train,y_train)
+sm = SMOTE(random_state=42)
+X_train,y_train=sm.fit_resample(X_train,y_train)
 #0.6 Train and 0.2 Val and 0.2 Test
 print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
 print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))
@@ -39,8 +39,8 @@ class CNN(nn.Module):
         super(CNN, self).__init__()
         # 1 input image channel, 6 output channels, 3x3 square convolution
         # kernel 
-        self.conv1 = nn.Conv2d(3, 10, 3) #shape = 6,26,26
-        self.conv2 = nn.Conv2d(10, 20, 3)  #shape = 16,11,11
+        self.conv1 = nn.Conv2d(3, 10, kernel_size=3) #shape = 6,26,26
+        self.conv2 = nn.Conv2d(10, 20, kernel_size=3)  #shape = 16,11,11
         # an affine operation: y = Wx + b
         self.fc1 = nn.Linear(20 * 5 * 5, 120)  # 5*5 from image dimension
         self.fc2 = nn.Linear(120, 2)
@@ -48,13 +48,15 @@ class CNN(nn.Module):
 
     def forward(self, x):
         # Max pooling over a (2, 2) window
-        x = F.max_pool2d(F.relu(self.conv1(x)), (2, 2)) #shape = 6,13,13
+        x = F.max_pool2d(F.relu(self.conv1(x)), 2) #shape = 6,13,13
         # If the size is a square, you can specify with a single number
         x = F.max_pool2d(F.relu(self.conv2(x)), 2) #shape=16,5,5
+        #print(x.shape)
         x = torch.flatten(x, 1) # flatten all dimensions except the batch dimension
+        x = self.dropout(x)
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
-        x = F.softmax(self.fc2(x),dim=0) #Apply by columns
+        x = F.log_softmax(self.fc2(x),dim=1) #Apply by rows
         return x
     
 class FFNDataset(Dataset):
@@ -100,7 +102,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     loss= loss.item()
     print(f"Training loss: {loss:>7f}")
 
-def test_loop(dataloader, model, loss_fn,mode="Validation"):
+def test_loop(dataloader, model, loss_fn):
     # Set the model to evaluation mode - important for batch normalization and dropout layers
     # Unnecessary in this situation but added for best practices
     model.eval()
@@ -130,18 +132,18 @@ def test_loop(dataloader, model, loss_fn,mode="Validation"):
     #print(TP,TN,FP,FN,size,TP+FP+FN+TN)
     balanced_acc =1/2*(TP/(TP+FN)+TN/(TN+FP)) #1/2*(Sensivity+Specificity)
     recall=TP/(TP+FN)
-    specifcity=+TN/(TN+FP)
+    specificity=+TN/(TN+FP)
     test_loss /= num_batches
-    print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specifcity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
+    print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specificity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
     return balanced_acc
 
 early_stopper = EarlyStopper(patience=3, min_delta=0)
 model=CNN()
-learning_rate = 1e-3
-batch_size = 8
+learning_rate = 1e-5
+batch_size = 128
 epochs = 30
 loss_fn = nn.CrossEntropyLoss()
-optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
+optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate,weight_decay=0.001)
 
 #Loads the data in a dataloader to control the batch and pre-processing easier
 train_dataloader = DataLoader(FFNDataset(X_train,y_train), batch_size=batch_size,shuffle=True)
