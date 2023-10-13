@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader,Dataset
 import numpy as np
-from utils import self_augmentation
+from utils import self_augmentation_rotate_flip,self_augmentation_shift,self_augmentation
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
 from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
@@ -40,7 +40,7 @@ class CNN(nn.Module):
         self.conv1 = nn.Conv2d(3, 10, kernel_size=5,padding='same') #shape = 6,26,26
         self.conv2 = nn.Conv2d(10, 20, kernel_size=3)  #shape = 16,11,11
         # an affine operation: y = Wx + b
-        self.fc1 = nn.Linear(20 * 6 * 6, 120)  # 5*5 from image dimension
+        self.fc1 = nn.Linear(20 * 6 * 6,120 )  # 5*5 from image dimension
         self.fc2 = nn.Linear(120, 2)
         self.dropout=nn.Dropout(0.5)
 
@@ -66,7 +66,8 @@ class FFNDataset(Dataset):
                 X_array,y_array=sm.fit_resample(X_array,y_array)
             elif augmentation:
                 print("Using Augmentation")
-                X_array,y_array=self_augmentation(X_array,y_array)
+                X_array,y_array=self_augmentation_rotate_flip(X_array,y_array)
+                #X_array,y_array=self_augmentation_shift(X_array,y_array)
         self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
         self.y=torch.tensor(y_array,dtype=torch.float32).long()
 
@@ -145,7 +146,7 @@ early_stopper = EarlyStopper(patience=3, min_delta=0)
 model=CNN()
 learning_rate = 1e-3
 batch_size = 128
-epochs = 22
+epochs = 15
 loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=0.01)
 
