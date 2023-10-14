@@ -47,17 +47,17 @@ for prepro in ["","_zscore", "_norm"]:
     plt.figure(figsize=(10, 6))  
 
     for coef_index in range(lasso_coefficients.shape[1]):
-        plt.plot(alphas, lasso_coefficients[:, coef_index], label=f'Coefficient {coef_index + 1}')
+        plt.plot(alphas, lasso_coefficients[:, coef_index], label=f'Feature {coef_index + 1}')
 
     plt.xscale('log')  
-    plt.xlabel('Alpha (Log Scale)')
-    plt.ylabel('Coefficient Value')
-    plt.title('Lasso Coefficient Paths')
-    plt.legend()
+    plt.xlabel('Alpha (Log10 Scale)', fontsize=13)
+    plt.ylabel('Coefficient Value',fontsize=13)
+    plt.legend(fontsize=11)
     plt.grid(True)
 
     filename = f'lasso_coef_{prepro}.png'
     save_path = os.path.join(save_folder, filename)
+    plt.tight_layout()
     plt.savefig(save_path)
 
     plt.figure(figsize=(10, 6))  
@@ -65,17 +65,16 @@ for prepro in ["","_zscore", "_norm"]:
     ridge_coefficients = ridge_coefficients.reshape(6, 10)
 
     for coef_index in range(ridge_coefficients.shape[1]):
-        plt.plot(alphas, ridge_coefficients[:, coef_index], label=f'Coefficient {coef_index + 1}')
+        plt.plot(alphas, ridge_coefficients[:, coef_index], label=f'Feature {coef_index + 1}')
 
     plt.xscale('log')
-    plt.xlabel('Alpha (Log Scale)')
-    plt.ylabel('Coefficient Value')
-    plt.title('Ridge Coefficients')
-    plt.legend()
+    plt.xlabel('Alpha (Log10 Scale)', fontsize=13)
+    plt.legend(fontsize=11)
     plt.grid(True)
 
     filename = f'ridge_coef_{prepro}.png'
     save_path = os.path.join(save_folder, filename)
+    plt.tight_layout()
     plt.savefig(save_path)
 
 

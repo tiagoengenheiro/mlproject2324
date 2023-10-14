@@ -23,9 +23,9 @@ X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_
 
 X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1) # 0.25 x 0.8 = 0.2
 
-# print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
-# print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))
-# print("Split: Y_test",len(y_test),"Class 0:",len(y_test[y_test==0]),"Class 1:",len(y_test[y_test==1]),"Ratio:",len(y_test[y_test==0])/len(y_test[y_test==1]))
+print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
+print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))
+print("Split: Y_test",len(y_test),"Class 0:",len(y_test[y_test==0]),"Class 1:",len(y_test[y_test==1]),"Ratio:",len(y_test[y_test==0])/len(y_test[y_test==1]))
 # print("Split: Y_val",len(y_val),"Class 0:",len(y_val[y_val==0]),"Class 1:",len(y_val[y_val==1]),"Ratio:",len(y_val[y_val==0])/len(y_val[y_val==1]))
 
 # _,n_features=X_train.shape
@@ -66,7 +66,9 @@ class FFNDataset(Dataset):
                 X_array,y_array=sm.fit_resample(X_array,y_array)
             elif augmentation:
                 print("Using Augmentation")
+                print(X_array.shape,y_array.shape)
                 X_array,y_array=self_augmentation_rotate_flip(X_array,y_array)
+                print(X_array.shape,y_array.shape)
                 #X_array,y_array=self_augmentation_shift(X_array,y_array)
         self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
         self.y=torch.tensor(y_array,dtype=torch.float32).long()
@@ -77,23 +79,6 @@ class FFNDataset(Dataset):
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
     
-class EarlyStopper:
-    def __init__(self, patience=10, min_delta=0):
-        self.patience = patience
-        self.min_delta = min_delta
-        self.counter = 0
-        self.min_validation_loss = float('inf')
-
-    def early_stop(self, validation_loss):
-        if validation_loss < self.min_validation_loss:
-            self.min_validation_loss = validation_loss
-            self.counter = 0
-        elif validation_loss > (self.min_validation_loss + self.min_delta):
-            self.counter += 1
-            if self.counter >= self.patience:
-                return True
-        return False
-
 def train_loop(dataloader, model, loss_fn, optimizer):
     # Set the model to training mode - important for batch normalization and dropout layers
     # Unnecessary in this situation but added for best practices
@@ -142,7 +127,6 @@ def test_loop(dataloader, model, loss_fn):
     print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specificity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
     return balanced_acc
 #flipping images vertically or creating mirrored images
-early_stopper = EarlyStopper(patience=3, min_delta=0)
 model=CNN()
 learning_rate = 1e-3
 batch_size = 128
@@ -155,18 +139,23 @@ train_dataloader = DataLoader(FFNDataset(X_train,y_train,mode="train",oversampli
 val_dataloader = DataLoader(FFNDataset(X_val,y_val), batch_size=batch_size,shuffle=True)
 test_loss, correct = 0, 0
 
-
+print("Tuning Hyperparameters with Validation Set")
 for t in range(epochs):
-    train_dataloader.dataset
     print(f"Epoch {t+1}\n-------------------------------")
     train_loop(train_dataloader, model, loss_fn, optimizer)
     print(f"Validation Results:")
-    validation_metric=test_loop(val_dataloader, model, loss_fn)
-    # if early_stopper.early_stop(validation_metric):
-    #     print("Early Stop")
-    #     break
+    test_loop(val_dataloader, model, loss_fn)
+
 print("Done Traning!")
 
-val_dataloader = DataLoader(FFNDataset(X_test,y_test), batch_size=batch_size)
-print("Test Results")
-test_loop(val_dataloader,model,loss_fn)
+model=CNN()
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=0.01)
+print("Test Results on X_test")
+print(X_train.shape,y_train.shape)
+train_dataloader = DataLoader(FFNDataset(X_train,y_train,mode="train",oversampling=False,augmentation=True), batch_size=batch_size,shuffle=True)
+test_dataloader = DataLoader(FFNDataset(X_test,y_test), batch_size=batch_size)
+for t in range(epochs):
+    print(f"Epoch {t+1}\n-------------------------------")
+    train_loop(train_dataloader, model, loss_fn, optimizer)
+    print(f"Validation Results:")
+    test_loop(test_dataloader, model, loss_fn)
