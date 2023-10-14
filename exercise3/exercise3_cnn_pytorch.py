@@ -42,18 +42,21 @@ class CNN(nn.Module):
         # an affine operation: y = Wx + b
         self.fc1 = nn.Linear(20 * 6 * 6,120 )  # 5*5 from image dimension
         self.fc2 = nn.Linear(120, 2)
-        self.dropout=nn.Dropout(0.5)
+        self.dropout=nn.Dropout(0.5) #Regularizacao
 
     def forward(self, x):
         # Max pooling over a (2, 2) window
         x = F.max_pool2d(F.relu(self.conv1(x)), 2) #shape = 6,13,13
         # If the size is a square, you can specify with a single number
         x = F.max_pool2d(F.relu(self.conv2(x)), 2) #shape=16,5,5
-        #print(x.shape)
+        print(x.shape)
+        
         x = torch.flatten(x, 1) # flatten all dimensions except the batch dimension
         x = self.dropout(x)
+        
         x = F.relu(self.fc1(x))
         x = self.dropout(x)
+
         x = F.log_softmax(self.fc2(x),dim=1) #Apply by rows
         return x
     
@@ -126,6 +129,7 @@ def test_loop(dataloader, model, loss_fn):
     test_loss /= num_batches
     print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specificity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
     return balanced_acc
+
 #flipping images vertically or creating mirrored images
 model=CNN()
 learning_rate = 1e-3
