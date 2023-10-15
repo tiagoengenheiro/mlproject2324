@@ -3,3 +3,4 @@ __pycache__/
 *exp*.py
 *.zip
 .vscode
+*.xlsx

@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader,Dataset
 import numpy as np
-from utils import self_augmentation_rotate_flip,self_augmentation_shift,self_augmentation
+from utils import *
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
 from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
@@ -49,7 +49,6 @@ class CNN(nn.Module):
         x = F.max_pool2d(F.relu(self.conv1(x)), 2) #shape = 6,13,13
         # If the size is a square, you can specify with a single number
         x = F.max_pool2d(F.relu(self.conv2(x)), 2) #shape=16,5,5
-        print(x.shape)
         
         x = torch.flatten(x, 1) # flatten all dimensions except the batch dimension
         x = self.dropout(x)
@@ -69,10 +68,11 @@ class FFNDataset(Dataset):
                 X_array,y_array=sm.fit_resample(X_array,y_array)
             elif augmentation:
                 print("Using Augmentation")
-                print(X_array.shape,y_array.shape)
+                #X_array,y_array=self_augmentation(X_array,y_array)
+                
+                #X_array,y_array=self_augmentation(X_array,y_array,shift_n=1)
                 X_array,y_array=self_augmentation_rotate_flip(X_array,y_array)
-                print(X_array.shape,y_array.shape)
-                #X_array,y_array=self_augmentation_shift(X_array,y_array)
+                print(X_array.shape)
         self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
         self.y=torch.tensor(y_array,dtype=torch.float32).long()
 
@@ -135,8 +135,9 @@ model=CNN()
 learning_rate = 1e-3
 batch_size = 128
 epochs = 15
+weight_decay=0.01
 loss_fn = nn.CrossEntropyLoss()
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=0.01)
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=weight_decay)
 
 #Loads the data in a dataloader to control the batch and pre-processing easier
 train_dataloader = DataLoader(FFNDataset(X_train,y_train,mode="train",oversampling=False,augmentation=True), batch_size=batch_size,shuffle=True)
@@ -153,13 +154,14 @@ for t in range(epochs):
 print("Done Traning!")
 
 model=CNN()
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=0.01)
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=weight_decay)
 print("Test Results on X_test")
-print(X_train.shape,y_train.shape)
+X_train=np.vstack((X_train,X_val))
+y_train=np.concatenate((y_train,y_val))
 train_dataloader = DataLoader(FFNDataset(X_train,y_train,mode="train",oversampling=False,augmentation=True), batch_size=batch_size,shuffle=True)
 test_dataloader = DataLoader(FFNDataset(X_test,y_test), batch_size=batch_size)
 for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------------")
     train_loop(train_dataloader, model, loss_fn, optimizer)
     print(f"Validation Results:")
-    test_loop(test_dataloader, model, loss_fn)
+test_loop(test_dataloader, model, loss_fn)

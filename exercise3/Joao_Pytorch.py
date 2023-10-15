@@ -225,4 +225,4 @@ if __name__ == "__main__":
 
     #Resultados do teste
     print("Test Results:")
-    test_loop(val_dataloader,model,loss_fn)
+    test_loop(test_dataloader,model,loss_fn)
