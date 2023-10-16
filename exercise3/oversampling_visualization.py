@@ -6,7 +6,7 @@ from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,B
 X=np.load("Xtrain_Classification1.npy")
 y=np.load("ytrain_Classification1.npy")
 sm = ADASYN(random_state=42)
-# X,y=sm.fit_resample(X,y)
+X,y=sm.fit_resample(X,y)
 
 X=X.reshape(X.shape[0],28,28,3)
 choices=sorted(np.arange(0,X.shape[0],1))

@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader,Dataset
 import numpy as np
+from matplotlib import pyplot as plt
 from utils import *
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
@@ -21,7 +22,7 @@ y=np.load("ytrain_Classification1.npy") #.reshape(X.shape[0],1)
 #Pre processing:
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1) #0.8 - 0.2 
 
-X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1) # 0.25 x 0.8 = 0.2
+# X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1) # 0.25 x 0.8 = 0.2
 
 print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
 print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))
@@ -60,7 +61,7 @@ class CNN(nn.Module):
         return x
     
 class FFNDataset(Dataset):
-    def __init__(self, X_array,y_array,mode=None,oversampling=False,augmentation=False):
+    def __init__(self, X_array,y_array,mode=None,oversampling=False,augmentation=False,std=0.05,th=0.3):
         if mode=="train":
             if oversampling:
                 print("Using Oversampling")
@@ -68,10 +69,7 @@ class FFNDataset(Dataset):
                 X_array,y_array=sm.fit_resample(X_array,y_array)
             elif augmentation:
                 print("Using Augmentation")
-                #X_array,y_array=self_augmentation(X_array,y_array)
-                
-                #X_array,y_array=self_augmentation(X_array,y_array,shift_n=1)
-                X_array,y_array=self_augmentation_rotate_flip(X_array,y_array)
+                X_array,y_array=self_augmentation_hue(X_array,y_array,std,th)
                 print(X_array.shape)
         self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
         self.y=torch.tensor(y_array,dtype=torch.float32).long()
@@ -86,16 +84,20 @@ def train_loop(dataloader, model, loss_fn, optimizer):
     # Set the model to training mode - important for batch normalization and dropout layers
     # Unnecessary in this situation but added for best practices
     model.train()
+    num_batches = len(dataloader)
+    train_loss=0
     for batch, (X, y) in enumerate(dataloader):
         # Compute prediction and loss
         pred = model(X)
         loss = loss_fn(pred, y)
+        train_loss+=loss.item()
         # Backpropagation
         loss.backward() #computed the loss for every parameter
         optimizer.step() #updates the parameters
         optimizer.zero_grad() #resets the gradients
-    loss=loss.item()
-    print(f"Training loss: {loss:>7f}")
+    train_loss /= num_batches
+    print(f"Avg train loss: {train_loss:>7f}")
+    return train_loss
 
 def test_loop(dataloader, model, loss_fn):
     # Set the model to evaluation mode - important for batch normalization and dropout layers
@@ -128,40 +130,54 @@ def test_loop(dataloader, model, loss_fn):
     balanced_acc = 1/2*(recall+specificity)
     test_loss /= num_batches
     print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specificity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
-    return balanced_acc
+    return test_loss,recall,specificity,balanced_acc
 
 #flipping images vertically or creating mirrored images
 model=CNN()
 learning_rate = 1e-3
 batch_size = 128
-epochs = 15
+epochs = 20
 weight_decay=0.01
-loss_fn = nn.CrossEntropyLoss()
+loss_fn = nn.NLLLoss() #NLLoss
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=weight_decay)
-
+std=0.2
+th=1.0
 #Loads the data in a dataloader to control the batch and pre-processing easier
-train_dataloader = DataLoader(FFNDataset(X_train,y_train,mode="train",oversampling=False,augmentation=True), batch_size=batch_size,shuffle=True)
-val_dataloader = DataLoader(FFNDataset(X_val,y_val), batch_size=batch_size,shuffle=True)
-test_loss, correct = 0, 0
+train_dataloader = DataLoader(FFNDataset(X_train,y_train,mode="train",oversampling=False,augmentation=True,std=std,th=th), batch_size=batch_size,shuffle=True)
+# val_dataloader = DataLoader(FFNDataset(X_val,y_val), batch_size=batch_size,shuffle=True)
 
-print("Tuning Hyperparameters with Validation Set")
+
+
+print("Test Results on X_test")
+test_dataloader = DataLoader(FFNDataset(X_test,y_test), batch_size=batch_size)
+
+train_loss_list=[]
+test_loss_list=[]
+b_acc_list=[]
+specifity_list=[]
+recall_list=[]
+
 for t in range(epochs):
     print(f"Epoch {t+1}\n-------------------------------")
-    train_loop(train_dataloader, model, loss_fn, optimizer)
+    train_loss_list.append(train_loop(train_dataloader, model, loss_fn, optimizer))
     print(f"Validation Results:")
-    test_loop(val_dataloader, model, loss_fn)
-
+    avg_loss,recall,specificity,balanced_acc=test_loop(test_dataloader, model, loss_fn)
+    test_loss_list.append(avg_loss)
+    b_acc_list.append(round(100*balanced_acc,2))
+    specifity_list.append(round(100*specificity,2))
+    recall_list.append(round(100*recall,2))
 print("Done Traning!")
 
-model=CNN()
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=weight_decay)
-print("Test Results on X_test")
-X_train=np.vstack((X_train,X_val))
-y_train=np.concatenate((y_train,y_val))
-train_dataloader = DataLoader(FFNDataset(X_train,y_train,mode="train",oversampling=False,augmentation=True), batch_size=batch_size,shuffle=True)
-test_dataloader = DataLoader(FFNDataset(X_test,y_test), batch_size=batch_size)
-for t in range(epochs):
-    print(f"Epoch {t+1}\n-------------------------------")
-    train_loop(train_dataloader, model, loss_fn, optimizer)
-    print(f"Validation Results:")
-test_loop(test_dataloader, model, loss_fn)
+plt.figure(figsize=(10, 6))
+plt.plot(train_loss_list, label='train_loss')
+plt.plot(test_loss_list,label='test_loss')
+plt.legend()
+augmentation=f"hue_std_{std}_th_{th}"
+#augmentation="shift_n_2_rot_k_2"
+plt.savefig(f"graphs/lr_{learning_rate}_weight_decay_{weight_decay}_{augmentation}.png")
+plt.figure(figsize=(10, 6)) 
+plt.plot(b_acc_list, label='Balanced Accuracy')
+plt.plot(specifity_list,label='Specifity')
+plt.plot(recall_list,label='Recall')
+plt.legend()
+plt.savefig(f"graphs/max_bacc_{max(b_acc_list)}_loss_{round(test_loss_list[b_acc_list.index(max(b_acc_list))],3)}_epochs_{b_acc_list.index(max(b_acc_list))+1}_lr_{learning_rate}_weigth_decay_{weight_decay}_{augmentation}.png")
