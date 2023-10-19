@@ -84,14 +84,14 @@ def apply_saturation (image,saturation_factor):
     rgb_image = (rgb_image * 255.0).astype(np.uint8)
     return rgb_image
 
-def apply_hue(image,saturation_factor):
+def apply_hue(image,hue_factor):
     image_t=(image).astype(np.float32)
     image_t=image_t/255.0
     # Convert RGB to HSV
     hsv_image = np.apply_along_axis(rgb_to_hsv,2,image_t)
 
     #Modify the hue component by adding the hue shift in degrees
-    hsv_image[:, :, 0] = (hsv_image[:, :, 0] + (saturation_factor*100 / 360)) % 1.0 #because it's degrees it goes around
+    hsv_image[:, :, 0] = (hsv_image[:, :, 0] + (hue_factor*100 / 360)) % 1.0 #because it's degrees it goes around
     #Convert HSV back to RGB
     rgb_image = np.apply_along_axis(hsv_to_rgb,2,hsv_image)
     rgb_image = (rgb_image * 255).astype(np.uint8)
@@ -114,10 +114,8 @@ def self_augmentation_combined(X_train,y_train,std,th,shift_n=2):
         #Rotation to 90 and 180
         np.random.seed(i)
         distribution=np.clip(std*np.random.randn(5),-th,th)
-        for axis in [0,1]:
-            for shift in [-shift_n,shift_n]:
-                X_train_pos_extra.append(np.roll(image,shift=shift,axis=axis))
-        X_train_pos_extra.append(apply_hue(image,distribution[i%5]))
+        for element in [0.3,0.2,0.1]:
+            X_train_pos_extra.append(apply_hue(image,element))
         #X_train_pos_extra.append(np.rot90(image,k=2))
         
     #print(np.array(X_train_pos_extra).shape)
