@@ -8,30 +8,30 @@ from utils import *
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
 from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
+import copy
 
-seed=42
-torch.manual_seed(seed)
-torch.cuda.manual_seed_all(seed)
- #https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {device}")
+class EarlyStopper:
+    def __init__(self,patience=10, min_delta=0):
+        self.state_dict=None
+        self.epoch=1
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.max_metric = 0
 
-X=np.load("Xtrain_Classification1.npy")
-y=np.load("ytrain_Classification1.npy") #.reshape(X.shape[0],1)
-
-#Pre processing:
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42) #0.8 - 0.2 
-
-# X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1) # 0.25 x 0.8 = 0.2
-
-print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
-print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))
-print("Split: Y_test",len(y_test),"Class 0:",len(y_test[y_test==0]),"Class 1:",len(y_test[y_test==1]),"Ratio:",len(y_test[y_test==0])/len(y_test[y_test==1]))
-# print("Split: Y_val",len(y_val),"Class 0:",len(y_val[y_val==0]),"Class 1:",len(y_val[y_val==1]),"Ratio:",len(y_val[y_val==0])/len(y_val[y_val==1]))
-
-# _,n_features=X_train.shape
-# print("N of features:",n_features)
-
+    def early_stop(self,model,current_epoch,metric):
+        if metric > self.max_metric:
+            self.max_metric = metric
+            self.counter = 0
+            self.state_dict=copy.deepcopy(model.state_dict())
+            self.epoch=current_epoch
+        elif metric < (self.max_metric + self.min_delta):
+            
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False
+    
 class CNN(nn.Module):
 
     def __init__(self):
@@ -69,7 +69,7 @@ class FFNDataset(Dataset):
                 X_array,y_array=sm.fit_resample(X_array,y_array)
             elif augmentation:
                 print("Using Augmentation")
-                X_array,y_array=self_augmentation(X_array,y_array)
+                X_array,y_array=self_augmentation_shift(X_array,y_array)
                 print(X_array.shape)
         self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
         self.y=torch.tensor(y_array,dtype=torch.float32).long()
@@ -132,11 +132,26 @@ def test_loop(dataloader, model, loss_fn):
     print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specificity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
     return test_loss,recall,specificity,balanced_acc
 
-#flipping images vertically or creating mirrored images
+seed=42
+torch.manual_seed(seed)
+torch.cuda.manual_seed_all(seed)
+ #https://www.tensorflow.org/tutorials/structured_data/imbalanced_data
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+X=np.load("Xtrain_Classification1.npy")
+y=np.load("ytrain_Classification1.npy")
+#Pre processing:
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2) #0.8 - 0.2 
+print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
+print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))
+print("Split: Y_test",len(y_test),"Class 0:",len(y_test[y_test==0]),"Class 1:",len(y_test[y_test==1]),"Ratio:",len(y_test[y_test==0])/len(y_test[y_test==1]))
+# print("Split: Y_val",len(y_val),"Class 0:",len(y_val[y_val==0]),"Class 1:",len(y_val[y_val==1]),"Ratio:",len(y_val[y_val==0])/len(y_val[y_val==1]))
+
 model=CNN()
 learning_rate = 1e-3
 batch_size = 128
-epochs = 20
+epochs = 30
 weight_decay=0.01
 loss_fn = nn.NLLLoss() #NLLoss
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=weight_decay)
@@ -148,7 +163,6 @@ train_dataloader = DataLoader(FFNDataset(X_train,y_train,mode="train",oversampli
 
 
 
-print("Test Results on X_test")
 test_dataloader = DataLoader(FFNDataset(X_test,y_test), batch_size=batch_size)
 
 train_loss_list=[]
@@ -156,28 +170,40 @@ test_loss_list=[]
 b_acc_list=[]
 specifity_list=[]
 recall_list=[]
-
-for t in range(epochs):
-    print(f"Epoch {t+1}\n-------------------------------")
+early_stopper = EarlyStopper(patience=10, min_delta=0)
+for epoch in range(1,epochs+1):
+    print(f"Epoch {epoch}\n-------------------------------")
     train_loss_list.append(train_loop(train_dataloader, model, loss_fn, optimizer))
     print(f"Validation Results:")
     avg_loss,recall,specificity,balanced_acc=test_loop(test_dataloader, model, loss_fn)
+
+    #Save Metrics
     test_loss_list.append(avg_loss)
     b_acc_list.append(round(100*balanced_acc,2))
     specifity_list.append(round(100*specificity,2))
     recall_list.append(round(100*recall,2))
+    
+    if early_stopper.early_stop(model,epoch,balanced_acc):  
+        print(f"Early Stopping")           
+        break
 print("Done Traning!")
 
-plt.figure(figsize=(10, 6))
-plt.plot(train_loss_list, label='train_loss')
-plt.plot(test_loss_list,label='test_loss')
-plt.legend()
+
+
+print(f"Repeatin Evaluation with best model that was obtained on epoch {early_stopper.epoch}")
+model=CNN()
+model.load_state_dict(early_stopper.state_dict)
+avg_loss,recall,specificity,balanced_acc=test_loop(test_dataloader, model, loss_fn)
+# plt.figure(figsize=(10, 6))
+# plt.plot(train_loss_list, label='train_loss')
+# plt.plot(test_loss_list,label='test_loss')
+# plt.legend()
 #augmentation=f"shift_n_2_left_shift_axis_1"
 #augmentation=f"shift_n_2_flip_axis_0_merged_with_saturation_std_{std}_th_{th}"
-plt.savefig(f"graphs/lr_{learning_rate}_weight_decay_{weight_decay}_{augmentation}.png")
+# plt.savefig(f"graphs/lr_{learning_rate}_weight_decay_{weight_decay}_{augmentation}.png")
 plt.figure(figsize=(10, 6)) 
 plt.plot(b_acc_list, label='Balanced Accuracy')
 plt.plot(specifity_list,label='Specifity')
 plt.plot(recall_list,label='Recall')
 plt.legend()
-plt.savefig(f"graphs/max_bacc_{max(b_acc_list)}_loss_{round(test_loss_list[b_acc_list.index(max(b_acc_list))],3)}_epochs_{b_acc_list.index(max(b_acc_list))+1}_lr_{learning_rate}_weigth_decay_{weight_decay}_{augmentation}.png")
+# plt.savefig(f"graphs/max_bacc_{max(b_acc_list)}_loss_{round(test_loss_list[b_acc_list.index(max(b_acc_list))],3)}_epochs_{b_acc_list.index(max(b_acc_list))}_lr_{learning_rate}_weigth_decay_{weight_decay}_{augmentation}.png")

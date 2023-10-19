@@ -5,8 +5,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import colorsys
 
-#pytorch_lightning
 
+    
 def self_augmentation_rotate_flip(X_train,y_train):
     X_train=X_train.reshape(X_train.shape[0],28,28,3)
     X_train_neg=X_train[y_train==0] 
@@ -39,8 +39,8 @@ def self_augmentation_shift(X_train,y_train,shift_n=2):
         for axis in [0,1]:
             for shift in [-shift_n,shift_n]:
                 X_train_pos_extra.append(np.roll(image,shift=shift,axis=axis))
-        X_train_pos_extra.append(np.roll(image,shift=-shift_n,axis=1))
-        #X_train_pos_extra.append(np.flip(image,axis=0))
+        #X_train_pos_extra.append(np.roll(image,shift=-shift_n,axis=0))
+        X_train_pos_extra.append(np.flip(image,axis=0))
         #X_train_pos_extra.append(np.rot90(image,k=2))
         
     #print(np.array(X_train_pos_extra).shape)
