@@ -50,13 +50,13 @@ class CNN(nn.Module):
         # kernel 
         # padding='same'
         self.conv1 = nn.Conv2d(3, 10, kernel_size=5, padding='same') #shape = 6,26,26
-        self.conv2 = nn.Conv2d(10, 30, kernel_size=5)  #shape = 16,11,11
+        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)  #shape = 16,11,11
         # an affine operation: y = Wx + b
-        self.bn2 = nn.BatchNorm2d(30)
+        self.bn2 = nn.BatchNorm2d(20)
         
         #self.fc1 = nn.Linear(30 * 6 * 6,64 )  # 5*5 from image dimension
-        self.fc1 = nn.Linear(30 * 5 * 5, 64)
-        self.fc2 = nn.Linear(64, 2)
+        self.fc1 = nn.Linear(20 * 5 * 5, 128)
+        self.fc2 = nn.Linear(128, 2)
         self.dropout=nn.Dropout(0.4)
 
     def forward(self, x):
@@ -77,6 +77,7 @@ class CNN(nn.Module):
 class CNNDataset(Dataset):
     def __init__(self, X_array,y_array,mode=None,augmentation=False):
         self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
+        #self.X = torch.mean(self.X, dim=1).unsqueeze(1)
         self.y=torch.tensor(y_array,dtype=torch.float32).long()
 
     def __len__(self):
@@ -84,6 +85,7 @@ class CNNDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
+    
 
 def test_loop(dataloader, model, loss_fn):
     # Set the model to evaluation mode - important for batch normalization and dropout layers
@@ -116,7 +118,7 @@ def test_loop(dataloader, model, loss_fn):
     balanced_acc = 1/2*(recall+specificity)
     test_loss /= num_batches
     print(f"Balanced Accuracy: {(100*balanced_acc):>0.1f}%, Recall:{(100*recall):>0.1f}%, Specificity:{(100*specificity):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
-    return
+    return balanced_acc
 
 def train_loop(dataloader, model, loss_fn, optimizer):
     # Set the model to training mode - important for batch normalization and dropout layers
@@ -149,6 +151,7 @@ def preprocessing(X_array, y_array, technique: str):
 
     elif technique == 'augmentation':
         X_array,y_array=self_augmentation_rotate_flip(X_array,y_array)
+
         #X_array,y_array=self_augmentation_shift(X_array,y_array)
         #X_array,y_array=self_augmentation(X_array,y_array)
 
@@ -166,6 +169,15 @@ if __name__ == "__main__":
     X = np.load("Xtrain_Classification1.npy")
     y = np.load("ytrain_Classification1.npy")
 
+    label_0_count = np.sum(y == 0)
+    label_1_count = np.sum(y == 1) 
+
+    prop = label_0_count / (label_0_count + label_1_count)
+
+    print(prop)
+
+    print(X.shape)
+
     #Split dataset into train, val and test. (0.6, 0.2, 0.2)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
     X_ftrain, y_ftrain = X_train, y_train #Final training dataset
@@ -176,6 +188,16 @@ if __name__ == "__main__":
     #Pre-processing
     X_train, y_train = preprocessing(X_train, y_train, technique='augmentation')
     X_ftrain, y_ftrain = preprocessing(X_ftrain, y_ftrain, technique='augmentation')
+    weights = torch.tensor([0.5, 0.5])
+    # weights = torch.tensor([float(1-prop), float(prop)])
+
+    saturation_factor = -1.0 
+    contrast_factor = 0.0 
+
+    
+
+
+
 
     # Model selection
     model = CNN()
@@ -184,7 +206,8 @@ if __name__ == "__main__":
     learning_rate = 1e-4
     batch_size = 256
     epochs = 15
-    loss_fn = nn.CrossEntropyLoss()
+    loss_fn = nn.CrossEntropyLoss(weight=weights)
+    #loss_fn = nn.CrossEntropyLoss() NNLoss
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=0.01)
     # optimizer = optim.Adam(model.parameters(), lr=1e-3) # Good
     # optimizer = optim.SGD(model.parameters(), lr=1e-4) # Melhor
@@ -193,6 +216,7 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(CNNDataset(X_val,y_val), batch_size=batch_size,shuffle=True)
     ftrain_dataloader = DataLoader(CNNDataset(X_ftrain,y_ftrain), batch_size=batch_size,shuffle=True)
     test_dataloader = DataLoader(CNNDataset(X_test,y_test), batch_size=batch_size,shuffle=True)
+    
     
     # Definir parametros da rede neuronal
     # hidden_layer_sizes = [128, 32]
@@ -203,8 +227,7 @@ if __name__ == "__main__":
     for epoch in range(epochs): 
         avg_loss = train_loop(train_dataloader, model, loss_fn, optimizer)
         # print(f'Epoch [{epoch + 1}/{epochs}], Average Loss: {avg_loss:.4f}')
-    
-    #Validar os hiperparametros (ainda nao esta implementado)
+
     print("Validation Results:")
     test_loop(val_dataloader,model,loss_fn)
 
@@ -215,7 +238,8 @@ if __name__ == "__main__":
     learning_rate = 1e-4
     batch_size = 256
     epochs = 15
-    loss_fn = nn.CrossEntropyLoss()
+    loss_fn = nn.CrossEntropyLoss(weight=weights) #NNLoss
+    #loss_fn = nn.NLLLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=0.01)
 
     # Treinar o modelo com o dataset train + val
