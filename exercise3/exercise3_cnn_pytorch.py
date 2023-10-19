@@ -20,7 +20,7 @@ X=np.load("Xtrain_Classification1.npy")
 y=np.load("ytrain_Classification1.npy") #.reshape(X.shape[0],1)
 
 #Pre processing:
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1) #0.8 - 0.2 
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42) #0.8 - 0.2 
 
 # X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1) # 0.25 x 0.8 = 0.2
 
@@ -69,7 +69,7 @@ class FFNDataset(Dataset):
                 X_array,y_array=sm.fit_resample(X_array,y_array)
             elif augmentation:
                 print("Using Augmentation")
-                X_array,y_array=self_augmentation_hue(X_array,y_array,std,th)
+                X_array,y_array=self_augmentation(X_array,y_array)
                 print(X_array.shape)
         self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
         self.y=torch.tensor(y_array,dtype=torch.float32).long()
@@ -140,7 +140,7 @@ epochs = 20
 weight_decay=0.01
 loss_fn = nn.NLLLoss() #NLLoss
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=weight_decay)
-std=0.2
+std=0.05
 th=1.0
 #Loads the data in a dataloader to control the batch and pre-processing easier
 train_dataloader = DataLoader(FFNDataset(X_train,y_train,mode="train",oversampling=False,augmentation=True,std=std,th=th), batch_size=batch_size,shuffle=True)
@@ -172,8 +172,8 @@ plt.figure(figsize=(10, 6))
 plt.plot(train_loss_list, label='train_loss')
 plt.plot(test_loss_list,label='test_loss')
 plt.legend()
-augmentation=f"hue_std_{std}_th_{th}"
-#augmentation="shift_n_2_rot_k_2"
+#augmentation=f"shift_n_2_left_shift_axis_1"
+#augmentation=f"shift_n_2_flip_axis_0_merged_with_saturation_std_{std}_th_{th}"
 plt.savefig(f"graphs/lr_{learning_rate}_weight_decay_{weight_decay}_{augmentation}.png")
 plt.figure(figsize=(10, 6)) 
 plt.plot(b_acc_list, label='Balanced Accuracy')

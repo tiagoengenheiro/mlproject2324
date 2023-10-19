@@ -39,8 +39,9 @@ def self_augmentation_shift(X_train,y_train,shift_n=2):
         for axis in [0,1]:
             for shift in [-shift_n,shift_n]:
                 X_train_pos_extra.append(np.roll(image,shift=shift,axis=axis))
-        #X_train_pos_extra.append(np.flip(image,axis=1))
-        X_train_pos_extra.append(np.rot90(image,k=2))
+        X_train_pos_extra.append(np.roll(image,shift=-shift_n,axis=1))
+        #X_train_pos_extra.append(np.flip(image,axis=0))
+        #X_train_pos_extra.append(np.rot90(image,k=2))
         
     #print(np.array(X_train_pos_extra).shape)
     X_train_pos=np.concatenate((X_train_pos,X_train_pos_extra),axis=0)
@@ -103,96 +104,81 @@ def apply_contrast(image,constrast_factor):
     adjusted_image_array = (image - 127.5) * (1+constrast_factor) + 127.5
     return np.clip(adjusted_image_array, 0, 255).astype(np.uint8)
 
-def self_augmentation_combined(X_train,y_train,std,th):
-    print("Using Combined")
+
+def self_augmentation_combined(X_train,y_train,std,th,shift_n=2):
     X_train=X_train.reshape(X_train.shape[0],28,28,3)
-    #Separate X_train based on class
     X_train_neg=X_train[y_train==0] 
     X_train_pos=X_train[y_train==1] 
-    print("Total shape",X_train.shape)
-    print("Neg shape",X_train_neg.shape)
-    print("Pos shape",X_train_pos.shape)
-    #Augment the positive class
-    X_train_pos_extra=[]
-    for image in X_train_pos:
-        #Rotation to 90 and 180
-        values_for_k=np.clip(std*np.random.randn(5),-th,th)
-        X_train_pos_extra.append(apply_hue(image,np.random.choice(values_for_k)))
-        X_train_pos_extra.append(apply_hue(image,np.random.choice(values_for_k)))
-        X_train_pos_extra.append(apply_hue(image,np.random.choice(values_for_k)))
-        X_train_pos_extra.append(apply_hue(image,np.random.choice(values_for_k)))
-        X_train_pos_extra.append(apply_hue(image,np.random.choice(values_for_k)))
-        
-    
-    X_train_pos=np.concatenate((X_train_pos,X_train_pos_extra),axis=0)
-    print("Final X_train pos",X_train_pos.shape)
-    #Add X_train pos with X_train neg
-    X_train=np.concatenate((X_train_pos,X_train_neg),axis=0)
-    print("Final X_train shape",X_train.shape)
-    #Add the classes
-    y_train=np.concatenate((np.ones(X_train_pos.shape[0]),np.zeros(X_train_neg.shape[0])))
-    return X_train,y_train
-
-def self_augmentation_merged(X_train,y_train,std,th):
-    print("Using Merged")
-    X_train=X_train.reshape(X_train.shape[0],28,28,3)
-    #Separate X_train based on class
-    X_train_neg=X_train[y_train==0] 
-    X_train_pos=X_train[y_train==1] 
-
-    #Augment the positive class
-    X_train_pos_extra=[]
-    for image in X_train_pos:
-        #Rotation to 90 and 180
-        values_for_k=np.clip(std*np.random.randn(5),-th,th)
-        # for i in range(5):
-        #     image_transformed=apply_hue(image,values_for_k[i])
-        #     image_transformed=apply_saturation(image,values_for_k[i])
-        #     image_transformed=apply_brightness(image,values_for_k[i])
-        #     image_transformed=np.rot90(image,k=np.random.choice([1,2,3]))
-        #     image_transformed=np.flip(image,axis=np.random.choice([0,1]))
-        #     X_train_pos_extra.append(image_transformed)
-        for _ in range(2):
-            image_transformed=apply_hue(image,np.random.choice(values_for_k))
-            image_transformed=np.rot90(image,k=np.random.choice([1,2]))
-            X_train_pos_extra.append(image_transformed)
-        for _ in range(2):
-            image_transformed=apply_brightness(image,np.random.choice(values_for_k))
-            image_transformed=np.flip(image,axis=np.random.choice([0,1]))
-            X_train_pos_extra.append(image_transformed)
-        image_transformed=apply_saturation(image,np.random.choice(values_for_k))
-        image_transformed=np.rot90(image,k=3)
-        X_train_pos_extra.append(image_transformed)
-    X_train_pos=np.concatenate((X_train_pos,X_train_pos_extra),axis=0)
-    print("Final X_train pos",X_train_pos.shape)
-    #Add X_train pos with X_train neg
-    X_train=np.concatenate((X_train_pos,X_train_neg),axis=0)
-    print("Final X_train shape",X_train.shape)
-    #Add the classes
-    y_train=np.concatenate((np.ones(X_train_pos.shape[0]),np.zeros(X_train_neg.shape[0])))
-    return X_train,y_train
-
-
-def self_augmentation_hue(X_train,y_train,std,th):
-    X_train=X_train.reshape(X_train.shape[0],28,28,3)
-    print("Using Hue")
-    #Separate X_train based on class
-    X_train_neg=X_train[y_train==0] 
-    X_train_pos=X_train[y_train==1] 
-
-    #Augment the positive class
     X_train_pos_extra=[]
     for i,image in enumerate(X_train_pos):
         #Rotation to 90 and 180
         np.random.seed(i)
-        distribution=np.random.randn(5)
-        for k in np.clip(std*distribution,-th,th):
-            X_train_pos_extra.append(apply_hue(image,k))
+        distribution=np.clip(std*np.random.randn(5),-th,th)
+        for axis in [0,1]:
+            for shift in [-shift_n,shift_n]:
+                X_train_pos_extra.append(np.roll(image,shift=shift,axis=axis))
+        X_train_pos_extra.append(apply_hue(image,distribution[i%5]))
+        #X_train_pos_extra.append(np.rot90(image,k=2))
+        
     #print(np.array(X_train_pos_extra).shape)
     X_train_pos=np.concatenate((X_train_pos,X_train_pos_extra),axis=0)
-    #Add X_train pos with X_train neg
+    #print(X_train_pos.shape)
     X_train=np.concatenate((X_train_pos,X_train_neg),axis=0)
-    #Add the classes
+    #print(X_train.shape)
+    y_train=np.concatenate((np.ones(X_train_pos.shape[0]),np.zeros(X_train_neg.shape[0])))
+    return X_train,y_train
+
+def self_augmentation_combined(X_train,y_train,std,th,shift_n=2):
+    X_train=X_train.reshape(X_train.shape[0],28,28,3)
+    X_train_neg=X_train[y_train==0] 
+    X_train_pos=X_train[y_train==1] 
+    X_train_pos_extra=[]
+    for i,image in enumerate(X_train_pos):
+        #Rotation to 90 and 180
+        np.random.seed(i)
+        distribution=np.clip(std*np.random.randn(5),-th,th)
+        for axis in [0,1]:
+            for shift in [-shift_n,shift_n]:
+                X_train_pos_extra.append(np.roll(image,shift=shift,axis=axis))
+        X_train_pos_extra.append(apply_hue(image,distribution[i%5]))
+        #X_train_pos_extra.append(np.rot90(image,k=2))
+        
+    #print(np.array(X_train_pos_extra).shape)
+    X_train_pos=np.concatenate((X_train_pos,X_train_pos_extra),axis=0)
+    #print(X_train_pos.shape)
+    X_train=np.concatenate((X_train_pos,X_train_neg),axis=0)
+    #print(X_train.shape)
+    y_train=np.concatenate((np.ones(X_train_pos.shape[0]),np.zeros(X_train_neg.shape[0])))
+    return X_train,y_train
+
+
+def self_augmentation_merged(X_train,y_train,std,th,shift_n=2):
+    X_train=X_train.reshape(X_train.shape[0],28,28,3)
+    X_train_neg=X_train[y_train==0] 
+    X_train_pos=X_train[y_train==1] 
+    X_train_pos_extra=[]
+    for i,image in enumerate(X_train_pos):
+        #Rotation to 90 and 180
+        np.random.seed(i)
+        distribution=np.clip(std*np.random.randn(5),-th,th)
+        for axis in [0,1]:
+            for shift in [-shift_n,shift_n]:
+                X_train_pos_extra.append(np.roll(image,shift=shift,axis=axis))
+        X_train_pos_extra.append(np.flip(image,axis=0))
+        for j in range(1,6,1):
+            X_train_pos_extra[-j]=apply_saturation(X_train_pos_extra[-j],distribution[j-1])
+        if i==0:
+            plt.imshow(image)
+            plt.savefig("images/merged_original")
+            plt.imshow(X_train_pos_extra[-j])
+            plt.savefig("images/merged_after")
+        #X_train_pos_extra.append(np.rot90(image,k=2))
+        
+    #print(np.array(X_train_pos_extra).shape)
+    X_train_pos=np.concatenate((X_train_pos,X_train_pos_extra),axis=0)
+    #print(X_train_pos.shape)
+    X_train=np.concatenate((X_train_pos,X_train_neg),axis=0)
+    #print(X_train.shape)
     y_train=np.concatenate((np.ones(X_train_pos.shape[0]),np.zeros(X_train_neg.shape[0])))
     return X_train,y_train
 
