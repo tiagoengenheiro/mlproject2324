@@ -4,8 +4,78 @@ from sklearn.model_selection import cross_validate
 import pandas as pd
 import matplotlib.pyplot as plt
 import colorsys
+import random
+def self_augmentation_dynamic(X_train,y_train, verbose=False):
+    X_train=X_train.reshape(X_train.shape[0],28,28,3)
+    X_train_neg=X_train[y_train==0] 
+    X_train_pos=X_train[y_train==1] 
+    X_train_pos_extra=[]
+
+    techniques = ['rotate', 'flip', 'shift']
+
+    for image in X_train_pos:
+        for i in range(5):
+            tech = random.randint(0, 2)
+
+            if techniques[tech] == 'rotate':
+                k = random.randint(1, 3)
+                X_train_pos_extra.append(np.rot90(image,k=k))
+                # if verbose:
+                #     print(f"Rotate with k = {k}")
+
+            elif techniques[tech] == 'shift':
+                axis = random.randint(0, 1)
+                shift_n = random.choice([-2, 2])
+                X_train_pos_extra.append(np.roll(image,shift=shift_n,axis=axis))
+                # if verbose:    
+                #     print(f"Shift with axis = {axis}, and shift_n = {shift_n}")
+            elif techniques[tech] == 'flip':
+                axis = random.randint(0, 1)
+                X_train_pos_extra.append(np.flip(image,axis=axis))
+                # if verbose:    
+                #     print(f"Flip with axis = {axis}")
+
+            # for element in [0.8]:
+            #     X_train_pos_extra.append(apply_saturation(apply_contrast(image,element), 0))
+            
+    #print(np.array(X_train_pos_extra).shape)
+    X_train_pos=np.concatenate((X_train_pos,X_train_pos_extra),axis=0)
+    #print(X_train_pos.shape)
+    X_train=np.concatenate((X_train_pos,X_train_neg),axis=0)
+    #print(X_train.shape)
+    y_train=np.concatenate((np.ones(X_train_pos.shape[0]),np.zeros(X_train_neg.shape[0])))
+    return X_train,y_train
 
 
+def self_augmentation_fixed(X_train,y_train):
+    shift_n=2
+    
+    X_train=X_train.reshape(X_train.shape[0],28,28,3)
+    X_train_neg=X_train[y_train==0] 
+    X_train_pos=X_train[y_train==1] 
+    X_train_pos_extra=[]
+
+    for image in X_train_pos:
+        #Rotation to 90 and 180
+        for k in [1]: # 1, 3
+            X_train_pos_extra.append(np.rot90(image,k=k))
+        for axis in [0,1]:
+            X_train_pos_extra.append(np.flip(image,axis=axis))
+    
+        for axis in [1]: # 0,1
+            for shift in [-shift_n, shift_n]:
+                X_train_pos_extra.append(np.roll(image,shift=shift,axis=axis))
+
+        for element in [0.8]:
+            X_train_pos_extra.append(apply_saturation(apply_contrast(image,element), 0))
+            
+    #print(np.array(X_train_pos_extra).shape)
+    X_train_pos=np.concatenate((X_train_pos,X_train_pos_extra),axis=0)
+    #print(X_train_pos.shape)
+    X_train=np.concatenate((X_train_pos,X_train_neg),axis=0)
+    #print(X_train.shape)
+    y_train=np.concatenate((np.ones(X_train_pos.shape[0]),np.zeros(X_train_neg.shape[0])))
+    return X_train,y_train
     
 def self_augmentation_rotate_flip(X_train,y_train):
     X_train=X_train.reshape(X_train.shape[0],28,28,3)
@@ -68,9 +138,9 @@ def self_augmentation(X_train,y_train):
     y_train=np.concatenate((np.ones(X_train_pos.shape[0]),np.zeros(X_train_neg.shape[0])))
     return X_train,y_train
 
-
 def rgb_to_hsv(v):
     return np.array(colorsys.rgb_to_hsv(v[0], v[1], v[2]))
+
 def hsv_to_rgb(v):
     return np.array(colorsys.hsv_to_rgb(v[0], v[1], v[2]))
 

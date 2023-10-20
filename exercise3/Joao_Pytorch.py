@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.model_selection import train_test_split
-from utils import self_augmentation_rotate_flip, self_augmentation_shift,self_augmentation
+from utils import *
 
 import torch
 import torch.nn as nn
@@ -11,6 +11,36 @@ from torch.utils.data import Dataset, DataLoader, TensorDataset
 from sklearn.utils import resample
 # from imblearn.over_sampling import SMOTE
 
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import balanced_accuracy_score
+from sklearn.model_selection import GridSearchCV
+import copy
+from sklearn.metrics import recall_score
+from sklearn import svm
+from sklearn.model_selection import cross_val_score
+
+class EarlyStopper:
+    def __init__(self,patience=10, min_delta=0):
+        self.state_dict=None
+        self.epoch=1
+        self.patience = patience
+        self.min_delta = min_delta
+        self.counter = 0
+        self.max_metric = 0
+
+    def early_stop(self,model,current_epoch,metric):
+        if metric > self.max_metric:
+            self.max_metric = metric
+            self.counter = 0
+            self.state_dict=copy.deepcopy(model.state_dict())
+            self.epoch=current_epoch
+        elif metric < (self.max_metric + self.min_delta):
+            
+            self.counter += 1
+            if self.counter >= self.patience:
+                return True
+        return False
+    
 class FFNN(nn.Module):
     def __init__(self, input_size, hidden_layer_sizes, output_size):
         super(FFNN, self).__init__()
@@ -48,29 +78,24 @@ class CNN(nn.Module):
         super(CNN, self).__init__()
         # 1 input image channel, 6 output channels, 3x3 square convolution
         # kernel 
-        # padding='same'
-        self.conv1 = nn.Conv2d(3, 10, kernel_size=5, padding='same') #shape = 6,26,26
-        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)  #shape = 16,11,11
-        # an affine operation: y = Wx + b
-        self.bn2 = nn.BatchNorm2d(20)
-        
-        #self.fc1 = nn.Linear(30 * 6 * 6,64 )  # 5*5 from image dimension
-        self.fc1 = nn.Linear(20 * 5 * 5, 128)
-        self.fc2 = nn.Linear(128, 2)
-        self.dropout=nn.Dropout(0.4)
+        self.conv1 = nn.Conv2d(3, 10, kernel_size=5,padding='same') #shape = 6,26,26
+        self.conv2 = nn.Conv2d(10, 20, kernel_size=3)  #shape = 16,11,11
+        self.fc1 = nn.Linear(20 * 6*6,120 )  # 5*5 from image dimension
+        self.fc2 = nn.Linear(120, 2)
+        self.dropout=nn.Dropout(0.5) #Regularizacao
 
     def forward(self, x):
         # Max pooling over a (2, 2) window
         x = F.max_pool2d(F.relu(self.conv1(x)), 2) #shape = 6,13,13
-        #print(x.shape)
         # If the size is a square, you can specify with a single number
         x = F.max_pool2d(F.relu(self.conv2(x)), 2) #shape=16,5,5
         #print(x.shape)
         x = torch.flatten(x, 1) # flatten all dimensions except the batch dimension
         x = self.dropout(x)
+        
         x = F.relu(self.fc1(x))
-        #x = F.sigmoid(self.fc1(x))
         x = self.dropout(x)
+
         x = F.log_softmax(self.fc2(x),dim=1) #Apply by rows
         return x
 
@@ -86,7 +111,6 @@ class CNNDataset(Dataset):
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
     
-
 def test_loop(dataloader, model, loss_fn):
     # Set the model to evaluation mode - important for batch normalization and dropout layers
     # Unnecessary in this situation but added for best practices
@@ -151,7 +175,6 @@ def preprocessing(X_array, y_array, technique: str):
 
     elif technique == 'augmentation':
         X_array,y_array=self_augmentation_rotate_flip(X_array,y_array)
-
         #X_array,y_array=self_augmentation_shift(X_array,y_array)
         #X_array,y_array=self_augmentation(X_array,y_array)
 
@@ -169,35 +192,28 @@ if __name__ == "__main__":
     X = np.load("Xtrain_Classification1.npy")
     y = np.load("ytrain_Classification1.npy")
 
+
+    X1 = np.load("Xtest_Classification1.npy")
+    print(X1.shape)
     label_0_count = np.sum(y == 0)
     label_1_count = np.sum(y == 1) 
 
+    
     prop = label_0_count / (label_0_count + label_1_count)
-
     print(prop)
 
     print(X.shape)
 
     #Split dataset into train, val and test. (0.6, 0.2, 0.2)
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=30)
     X_ftrain, y_ftrain = X_train, y_train #Final training dataset
-    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1) 
-
-    # n_samples_train, n_features = X_train.shape # 3752, 2352
+    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=30) 
 
     #Pre-processing
     X_train, y_train = preprocessing(X_train, y_train, technique='augmentation')
     X_ftrain, y_ftrain = preprocessing(X_ftrain, y_ftrain, technique='augmentation')
     weights = torch.tensor([0.5, 0.5])
     # weights = torch.tensor([float(1-prop), float(prop)])
-
-    saturation_factor = -1.0 
-    contrast_factor = 0.0 
-
-    
-
-
-
 
     # Model selection
     model = CNN()
@@ -216,7 +232,6 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(CNNDataset(X_val,y_val), batch_size=batch_size,shuffle=True)
     ftrain_dataloader = DataLoader(CNNDataset(X_ftrain,y_ftrain), batch_size=batch_size,shuffle=True)
     test_dataloader = DataLoader(CNNDataset(X_test,y_test), batch_size=batch_size,shuffle=True)
-    
     
     # Definir parametros da rede neuronal
     # hidden_layer_sizes = [128, 32]
@@ -250,3 +265,6 @@ if __name__ == "__main__":
     #Resultados do teste
     print("Test Results:")
     test_loop(test_dataloader,model,loss_fn)
+
+
+

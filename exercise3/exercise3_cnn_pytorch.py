@@ -7,7 +7,7 @@ from matplotlib import pyplot as plt
 from utils import *
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score
-from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
+# from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
 import copy
 from sklearn.model_selection import StratifiedKFold
 
@@ -65,8 +65,9 @@ class FFNDataset(Dataset):
         if mode=="train":
             if augmentation:
                 print("Using Augmentation")
-                X_array,y_array=self_augmentation(X_array,y_array)
+                X_array,y_array=self_augmentation_dynamic(X_array,y_array)
                 print(X_array.shape)
+
         self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
         self.y=torch.tensor(y_array,dtype=torch.float32).long()
 
@@ -92,7 +93,7 @@ def train_loop(dataloader, model, loss_fn, optimizer):
         optimizer.step() #updates the parameters
         optimizer.zero_grad() #resets the gradients
     train_loss /= num_batches
-    print(f"Avg train loss: {train_loss:>7f}")
+    #print(f"Avg train loss: {train_loss:>7f}")
     return train_loss
 
 def test_loop(dataloader, model, loss_fn):
@@ -125,7 +126,7 @@ def test_loop(dataloader, model, loss_fn):
     specificity=TN/(TN+FP)
     balanced_acc = 1/2*(recall+specificity)
     test_loss /= num_batches
-    print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specificity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
+    #print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specificity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
     return test_loss,recall,specificity,balanced_acc
 
 
@@ -151,7 +152,6 @@ def evaluate_model(X_train,y_train,X_test,y_test,seed=42,early_stopping=True):
     th=1.0
 
     train_dataloader = DataLoader(FFNDataset(X_train,y_train,mode="train",augmentation=True,std=std,th=th), batch_size=batch_size,shuffle=True)
-
     test_dataloader = DataLoader(FFNDataset(X_test,y_test,mode="test"),batch_size=X_test.shape[0],shuffle=True)
 
     train_loss_list=[]
@@ -161,9 +161,9 @@ def evaluate_model(X_train,y_train,X_test,y_test,seed=42,early_stopping=True):
     recall_list=[]
     early_stopper = EarlyStopper(patience=10, min_delta=0)
     for epoch in range(1,epochs+1):
-        print(f"Epoch {epoch}\n-------------------------------")
+        #print(f"Epoch {epoch}\n-------------------------------")
         train_loss_list.append(train_loop(train_dataloader, model, loss_fn, optimizer))
-        print(f"Validation Results:")
+        #print(f"Validation Results:")
         avg_loss,recall,specificity,balanced_acc=test_loop(test_dataloader, model, loss_fn)
 
         #Save Metrics
@@ -173,7 +173,7 @@ def evaluate_model(X_train,y_train,X_test,y_test,seed=42,early_stopping=True):
         recall_list.append(round(100*recall,2))
         
         if early_stopping and early_stopper.early_stop(model,epoch,balanced_acc):  
-            print(f"Early Stopping")           
+            #print(f"Early Stopping")           
             break
     print(f"Best model with {max(b_acc_list)} of b_acc for {b_acc_list.index(max(b_acc_list))} epochs with {round(test_loss_list[b_acc_list.index(max(b_acc_list))],3)} of test loss \n")
     return (max(b_acc_list),b_acc_list.index(max(b_acc_list))+1,round(test_loss_list[b_acc_list.index(max(b_acc_list))],3))
