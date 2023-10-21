@@ -1,3 +1,54 @@
 Multinomial Naive Bayes: Recall: 0.7687861271676301 Specificity: 0.5918367346938777 Balanced Acc: 0.6803114309307539
 CNN with SMOTE: Recall:70.5%, Specificity:82.5%, Balanced Accuracy: 76.5%,  Avg loss: 0.394836 lr=1e-3,26 epochs
 CNN with augmentation: 84.4%, Specificity:73.6%, Balanced Accuracy: 79.0%,  Avg loss: 0.418317,  Avg loss: 0.418317   AdamW epoch=15
+
+
+Log e NLL e lr=1e-3
+
+{'b_acc': [81.63, 79.44, 78.13, 77.8, 76.63], 'epochs': [14, 29, 20, 13, 6], 'val_loss': [0.453, 0.421, 0.461, 0.451, 0.476]}
+b_acc mean: 78.726  std: 1.705808899027086
+epochs mean: 15.4  std: 7.709734106958553
+val_loss mean: 0.4524  std: 0.017995555006723188
+
+Soft Max CE e lr=1e-4
+{'b_acc': [78.6, 76.97, 77.62, 77.62, 72.41], 'epochs': [25, 29, 22, 26, 5], 'val_loss': [0.591, 0.621, 0.633, 0.592, 0.757]}
+b_acc mean: 76.644  std: 2.1800972455374565
+epochs mean: 21.4  std: 8.499411744350311
+val_loss mean: 0.6388  std: 0.06131362002035112
+
+Log e CE lr=1e-4
+{'b_acc': [79.22, 77.15, 77.38, 78.69, 76.06], 'epochs': [28, 29, 28, 29, 28], 'val_loss': [0.451, 0.493, 0.488, 0.446, 0.502]}
+b_acc mean: 77.7  std: 1.13004424692133
+epochs mean: 28.4  std: 0.4898979485566356
+val_loss mean: 0.476  std: 0.02295212408471163
+
+Log e CE lr=1e-3
+{'b_acc': [80.98, 79.26, 78.88, 78.79, 76.62], 'epochs': [14, 19, 16, 25, 10], 'val_loss': [0.453, 0.41, 0.446, 0.442, 0.519]}
+b_acc mean: 78.906  std: 1.3904474100087352
+epochs mean: 16.8  std: 5.035871324805669
+val_loss mean: 0.454  std: 0.035693136595149506
+
+Log e CE lr=1e-3 1 Droupout
+{'b_acc': [78.15, 78.66, 79.86, 78.14, 77.32], 'epochs': [20, 14, 6, 3, 11], 'val_loss': [0.49, 0.413, 0.522, 0.443, 0.531]}
+b_acc mean: 78.426  std: 0.835741586855651
+epochs mean: 10.8  std: 5.979966555090421
+val_loss mean: 0.4798  std: 0.04543742950475963
+
+Log e CE lr=1e-3 2 Droupout but kernal of 3 instead of 5 
+{'b_acc': [79.1, 78.37, 77.71, 77.95, 76.58], 'epochs': [7, 23, 12, 19, 21], 'val_loss': [0.482, 0.431, 0.508, 0.423, 0.479]}
+b_acc mean: 77.942  std: 0.828622954062944
+epochs mean: 16.4  std: 5.986651818838307
+val_loss mean: 0.4646  std: 0.032413577402070265
+
+Log e CE lr=1e-3 3 Convs
+{'b_acc': [79.63, 79.53, 77.81, 78.69, 78.21], 'epochs': [6, 26, 30, 27, 21], 'val_loss': [0.47, 0.486, 0.469, 0.487, 0.45]}
+b_acc mean: 78.77399999999999  std: 0.7153628449954607
+epochs mean: 22.0  std: 8.508818954473059
+val_loss mean: 0.47240000000000004  std: 0.013544002362669604
+
+Log e CE lr=1e-3 3 Convs and 300 of layer
+{'b_acc': [80.46, 78.47, 80.46, 77.48, 75.46], 'epochs': [13, 11, 20, 22, 14], 'val_loss': [0.485, 0.419, 0.524, 0.564, 0.517]}
+b_acc mean: 78.466  std: 1.8952741226535006
+epochs mean: 16.0  std: 4.242640687119285
+val_loss mean: 0.5018  std: 0.04843717580536668
+

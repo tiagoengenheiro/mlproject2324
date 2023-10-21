@@ -65,7 +65,7 @@ class FFNDataset(Dataset):
         if mode=="train":
             if augmentation:
                 print("Using Augmentation")
-                X_array,y_array=self_augmentation_dynamic(X_array,y_array)
+                X_array,y_array=self_augmentation_shift_flip(X_array,y_array)
                 print(X_array.shape)
 
         self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
@@ -130,7 +130,7 @@ def test_loop(dataloader, model, loss_fn):
     return test_loss,recall,specificity,balanced_acc
 
 
-def evaluate_model(X_train,y_train,X_test,y_test,seed=42,early_stopping=True):
+def evaluate_model(X_train,y_train,X_test,y_test,seed=42,early_stopping=False):
     print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))
     print("Split: Y_test",len(y_test),"Class 0:",len(y_test[y_test==0]),"Class 1:",len(y_test[y_test==1]),"Ratio:",len(y_test[y_test==0])/len(y_test[y_test==1]))
 
@@ -143,8 +143,8 @@ def evaluate_model(X_train,y_train,X_test,y_test,seed=42,early_stopping=True):
     
     model=CNN()
     learning_rate = 1e-3
-    batch_size = 128
-    epochs = 30
+    batch_size = 30
+    epochs = 15
     weight_decay=0.01
     loss_fn = nn.NLLLoss() #NLLLoss
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=weight_decay)
@@ -200,8 +200,8 @@ cv_metrics={
     "val_loss":[]
 }
 for _, (train_index, test_index) in enumerate(skf.split(X, y)):
-    print("len of train_size:",X[train_index].shape)
-    print("len of test_size:",X[test_index].shape)
+    #print("len of train_size:",X[train_index].shape)
+    #print("len of test_size:",X[test_index].shape)
     metrics=evaluate_model(X[train_index],y[train_index],X[test_index],y[test_index])
     for i,key in enumerate(cv_metrics):
         cv_metrics[key].append(metrics[i])

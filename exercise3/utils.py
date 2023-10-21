@@ -98,7 +98,7 @@ def self_augmentation_rotate_flip(X_train,y_train):
     return X_train,y_train
 
 
-def self_augmentation_shift(X_train,y_train,shift_n=2):
+def self_augmentation_shift_flip(X_train,y_train,shift_n=2):
     X_train=X_train.reshape(X_train.shape[0],28,28,3)
     X_train_neg=X_train[y_train==0] 
     X_train_pos=X_train[y_train==1] 
