@@ -3,5 +3,4 @@ __pycache__/
 *exp*.py
 *.zip
 .vscode
-*.xlsx
 /exercise3/graphs
