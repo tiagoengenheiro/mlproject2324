@@ -7,11 +7,11 @@ import colorsys
 import random
 
 
-def self_augmentation(X_array,y_array,func=np.copy):
+def self_augmentation_old(X_array,y_array,func=np.copy):
     class_proportions=np.array(np.bincount(np.array(y_array,dtype=np.int64)),dtype=np.float32)/X_array.shape[0]
-    #print(class_proportions)
+    print(class_proportions)
     class_proportions=np.round(np.max(class_proportions)/class_proportions)-1
-    #print("number of agumentation",class_proportions)
+    print("number of augmentations",class_proportions)
     X_augmentations=[]
     y_augmentations=[]
     for i,n_aug in enumerate(class_proportions): #class,number of augmentations
@@ -22,6 +22,63 @@ def self_augmentation(X_array,y_array,func=np.copy):
                 X_label_augmented=np.apply_along_axis(func,1,X_label)
                 X_augmentations.append(X_label_augmented)
             y_augmentations=np.concatenate((y_augmentations,i*np.ones(X_label.shape[0]*np.int32(n_aug))))
+    X_augmentations=np.concatenate(X_augmentations,axis=0)
+    X_augmented=np.concatenate((X_array,X_augmentations))
+    y_augmented=np.concatenate((y_array,y_augmentations))
+    print(np.bincount(np.array(y_augmented,dtype=np.int64)))
+    return X_augmented,y_augmented
+
+def get_augmentation_per_class(X_class,n_pure,n_rest):
+    X_augmented=[X_class for _ in range (n_pure)]
+    X_augmented=np.concatenate(X_augmented,axis=0)
+    random_indexes=np.random.choice(np.arange(0,X_class.shape[0],1),n_rest,replace=False) #Picks the remainder randomly with no replace
+    X_augmented=np.vstack((X_augmented,X_class[random_indexes]))
+    return X_augmented
+
+def self_augmentation(X_array,y_array):
+    bin_count=np.bincount(np.array(y_array,dtype=np.int32))
+    augmentations_per_class=max(bin_count)-bin_count
+    print(augmentations_per_class)
+    pure_augmentations=augmentations_per_class//bin_count
+    reminder_augmentations=augmentations_per_class%bin_count
+    X_augmentations=[]
+    y_augmentations=[]
+    for i,n_aug in enumerate(augmentations_per_class): #class,number of augmentations
+        if n_aug!=0:
+            X_label=X_array[y_array==i]
+            X_augmmented=get_augmentation_per_class(X_label,pure_augmentations[i],reminder_augmentations[i])
+            X_augmentations.append(X_augmmented)
+            y_augmentations=np.concatenate((y_augmentations,i*np.ones(augmentations_per_class[i])))
+    X_augmentations=np.concatenate(X_augmentations,axis=0)
+    X_augmented=np.concatenate((X_array,X_augmentations))
+    y_augmented=np.concatenate((y_array,y_augmentations))
+    return X_augmented,y_augmented
+
+def apply_rotation_flip(X_array,flip_prob):
+    X_tranformed=[]
+    for i,image in enumerate(X_array.reshape(X_array.shape[0],28,28,3)):
+        flip=random.random()<flip_prob
+        if flip:
+            X_tranformed.append(np.flip(image,axis=i%2))
+        else:
+            X_tranformed.append(np.rot90(image,k=i%3+1))
+    return np.array(X_tranformed).reshape(X_array.shape[0],-1)
+
+
+def self_augmentation_rotation_flip(X_array,y_array,flip_prob=0.6):
+    bin_count=np.bincount(np.array(y_array,dtype=np.int32))
+    augmentations_per_class=max(bin_count)-bin_count
+    pure_augmentations=augmentations_per_class//bin_count
+    remainder_augmentations=augmentations_per_class%bin_count
+    X_augmentations=[]
+    y_augmentations=[]
+    for i,n_aug in enumerate(augmentations_per_class): #class,number of augmentations
+        if n_aug!=0:
+            X_label=X_array[y_array==i]
+            X_augmented=get_augmentation_per_class(X_label,pure_augmentations[i],remainder_augmentations[i])
+            X_augmented=apply_rotation_flip(X_augmented,flip_prob=flip_prob)
+            X_augmentations.append(X_augmented)
+            y_augmentations=np.concatenate((y_augmentations,i*np.ones(augmentations_per_class[i])))
     X_augmentations=np.concatenate(X_augmentations,axis=0)
     X_augmented=np.concatenate((X_array,X_augmentations))
     y_augmented=np.concatenate((y_array,y_augmentations))

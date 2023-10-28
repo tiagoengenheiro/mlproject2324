@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score,recall_score
 # from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,BorderlineSMOTE
 import copy
+import os
 from sklearn.model_selection import StratifiedKFold
 
 class EarlyStopper:
@@ -27,7 +28,6 @@ class EarlyStopper:
             self.state_dict=copy.deepcopy(model.state_dict())
             self.epoch=current_epoch
         elif metric < (self.max_metric + self.min_delta):
-            
             self.counter += 1
             if self.counter >= self.patience:
                 return True
@@ -39,7 +39,7 @@ def setup_seed(seed):
     torch.manual_seed(seed)                    
     torch.cuda.manual_seed(seed)               
     torch.cuda.manual_seed_all(seed)           
-    torch.backends.cudnn.deterministic = True  
+    torch.backends.cudnn.deterministic = False 
 
 class CNN(nn.Module):
 
@@ -73,7 +73,7 @@ class FFNDataset(Dataset):
         if mode=="train":
             print(X_array.shape,y_array.shape)
             if augmentation:
-                X_array,y_array=self_augmentation(X_array,y_array)
+                X_array,y_array=self_augmentation_rotation_flip(X_array,y_array)
                 print("After Augmentation",X_array.shape,y_array.shape)
 
 
@@ -87,13 +87,13 @@ class FFNDataset(Dataset):
     def __getitem__(self, idx):
         return self.X[idx], self.y[idx]
     
-def train_loop(dataloader, model, loss_fn, optimizer,device,seed):
+def train_loop(dataloader, model, loss_fn, optimizer,device,seed,epoch):
     # Set the model to training mode - important for batch normalization and dropout layers
     # Unnecessary in this situation but added for best practices
     model.train()
     num_batches = len(dataloader)
     train_loss=0
-    setup_seed(seed) #seed for dataloader
+    #setup_seed(seed) #seed for dataloader
     for batch, (X, y) in enumerate(dataloader):
         # Compute prediction and loss
         pred = model(X.to(device))
@@ -126,7 +126,7 @@ def test_loop(dataloader, model, loss_fn,device):
     # specificity=2*balanced_acc-recall
     test_loss /= num_batches
     #print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specificity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
-    return test_loss,_,_,balanced_acc
+    return test_loss,balanced_acc
 
 
 def evaluate_model(X_train,y_train,X_test,y_test,seed=42,learning_rate=1e-3,dropout=0.4,early_stopping=False,augmentation=False,batch_size=64,epochs=20):
@@ -135,6 +135,8 @@ def evaluate_model(X_train,y_train,X_test,y_test,seed=42,learning_rate=1e-3,drop
     print(f"Using device: {device}")
     setup_seed(seed) #seed for dropout
     model=CNN(dropout=dropout)
+    torch.manual_seed(seed)                    
+    torch.cuda.manual_seed(seed) 
     model.to(device)
     weight_decay=0.01
     loss_fn = nn.NLLLoss() #NLLLoss
@@ -150,70 +152,70 @@ def evaluate_model(X_train,y_train,X_test,y_test,seed=42,learning_rate=1e-3,drop
     b_acc_list=[]
     specifity_list=[]
     recall_list=[]
-    early_stopper = EarlyStopper(patience=10, min_delta=0)
+    early_stopper = EarlyStopper(patience=20, min_delta=0)
     for epoch in range(1,epochs+1):
         #print(f"Epoch {epoch}\n-------------------------------")
-        train_loss=train_loop(train_dataloader, model, loss_fn, optimizer,device,seed)
+        train_loss=train_loop(train_dataloader, model, loss_fn, optimizer,device,seed,epoch)
         train_loss_list.append(train_loss)
         #print(f"Validation Results:")
-        avg_loss,recall,specificity,balanced_acc=test_loop(test_dataloader, model, loss_fn,device)
+        avg_loss,balanced_acc=test_loop(test_dataloader, model, loss_fn,device)
 
         #Save Metrics
         print(f"Epoch: {epoch} Avg Train Loss: {train_loss} Avg Val Loss: {avg_loss} Balanced Accuracy {balanced_acc}")
         test_loss_list.append(avg_loss)
         b_acc_list.append(round(100*balanced_acc,2))
-        specifity_list.append(round(100*specificity,2))
-        recall_list.append(round(100*recall,2))
         
         if early_stopping and early_stopper.early_stop(model,epoch,balanced_acc):  
-            #print(f"Early Stopping")           
-           # break
-           pass
+            print(f"Early Stopping")           
+            break
     if early_stopping:
-        print(f"Best model with {max(b_acc_list)} of b_acc for {b_acc_list.index(max(b_acc_list))+1} epochs with {round(test_loss_list[b_acc_list.index(max(b_acc_list))],3)} of test loss \n")
+        
+        #print(f"Best model with {max(b_acc_list)} of b_acc for {b_acc_list.index(max(b_acc_list))+1} epochs with {round(test_loss_list[b_acc_list.index(max(b_acc_list))],3)} of test loss \n")
+        torch.save(early_stopper.state_dict, os.path.join(os.getcwd(),f'model_b_acc{max(b_acc_list)}_epochs{b_acc_list.index(max(b_acc_list))+1}_loss{round(test_loss_list[b_acc_list.index(max(b_acc_list))],3)}'))
         return (max(b_acc_list),b_acc_list.index(max(b_acc_list))+1,round(test_loss_list[b_acc_list.index(max(b_acc_list))],3))
     else:
         return balanced_acc,epoch,round(avg_loss,3)
 
     
+if __name__=="__main__":
+    X=np.load("Xtrain_Classification2.npy")
+    y=np.load("ytrain_Classification2.npy")
+    #Pre processing:
+    #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1,stratify=y)  
+    # X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1,stratify=y_train) 
+    class_proportions=np.array(np.bincount(np.array(y,dtype=np.int64)),dtype=np.float32)
+    #print(class_proportions)
 
-X=np.load("Xtrain_Classification2.npy")
-y=np.load("ytrain_Classification2.npy")
-#Pre processing:
-#X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1,stratify=y)  
-# X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1,stratify=y_train) 
-class_proportions=np.array(np.bincount(np.array(y,dtype=np.int64)),dtype=np.float32)
-print(class_proportions)
+    #print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
+    # print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))
+    # print("Split: Y_test",len(y_test),"Class 0:",len(y_test[y_test==0]),"Class 1:",len(y_test[y_test==1]),"Ratio:",len(y_test[y_test==0])/len(y_test[y_test==1]))
+    # print("Split: Y_val",len(y_val),"Class 0:",len(y_val[y_val==0]),"Class 1:",len(y_val[y_val==1]),"Ratio:",len(y_val[y_val==0])/len(y_val[y_val==1]))
 
-#print("Split: Y","N_examples:",len(y),"Class 0:",len(y[y==0]),"Class 1:",len(y[y==1]),"Ratio:",len(y[y==0])/len(y[y==1]))
-# print("Split: Y_train",len(y_train),"Class 0:",len(y_train[y_train==0]),"Class 1:",len(y_train[y_train==1]),"Ratio:",len(y_train[y_train==0])/len(y_train[y_train==1]))
-# print("Split: Y_test",len(y_test),"Class 0:",len(y_test[y_test==0]),"Class 1:",len(y_test[y_test==1]),"Ratio:",len(y_test[y_test==0])/len(y_test[y_test==1]))
-# print("Split: Y_val",len(y_val),"Class 0:",len(y_val[y_val==0]),"Class 1:",len(y_val[y_val==1]),"Ratio:",len(y_val[y_val==0])/len(y_val[y_val==1]))
-
-filename='contrast'
-skf=StratifiedKFold(n_splits=5,shuffle=True,random_state=42) #Same splits
-for learning_rate in [1e-3]:
-    for seed in [42]:
-        for dropout in [0.4]:
-            for batch_size in [64]:
-                for num_epochs in [20]:
-                    for contrast_factor in [0]:
-                        print(f"lr {learning_rate} seed {seed}")
-                        cv_metrics={
-                            "b_acc":[],
-                            "epochs":[],
-                            "val_loss":[]
-                        }
-                        for _, (train_index, test_index) in enumerate(skf.split(X, y)):
-                            print(train_index)
-                            #print("len of train_size:",X[train_index].shape)
-                            #print("len of test_size:",X[test_index].shape)
-                            metrics=evaluate_model(pre_processing_contrast(X[train_index],contrast_factor),y[train_index],pre_processing_contrast(X[test_index],contrast_factor),y[test_index],early_stopping=False,augmentation=True,learning_rate=learning_rate,seed=seed,dropout=dropout,epochs=num_epochs)
-                            for i,key in enumerate(cv_metrics):
-                                cv_metrics[key].append(metrics[i])
-                        with open(f"testing_{filename}.txt","a") as f:
-                            f.write(f"Seed: {seed}, lr:{learning_rate}, dropout: {dropout} batch_size {batch_size} epochs {num_epochs} contrast {contrast_factor} \n")
-                            f.write(str(cv_metrics)+"\n")
+    filename='contrast'
+    skf=StratifiedKFold(n_splits=5,shuffle=True,random_state=42) #Same splits
+    for learning_rate in [1e-3]:
+        for seed in [42]:
+            for dropout in [0.4]:
+                for batch_size in [64]:
+                    for num_epochs in [40]:
+                        for contrast_factor in [0]:
+                            print(f"lr {learning_rate} seed {seed}")
+                            cv_metrics={
+                                "b_acc":[],
+                                "epochs":[],
+                                "val_loss":[]
+                            }
+                            for _, (train_index, test_index) in enumerate(skf.split(X, y)):
+                                #print("len of train_size:",X[train_index].shape)
+                                #print("len of test_size:",X[test_index].shape)
+                                metrics=evaluate_model(X[train_index],y[train_index],X[test_index],y[test_index],seed=seed,early_stopping=True,augmentation=True,learning_rate=learning_rate,dropout=dropout,epochs=num_epochs)
+                                for i,key in enumerate(cv_metrics):
+                                    cv_metrics[key].append(metrics[i])
+                            # with open(f"testing_{filename}.txt","a") as f:
+                            #     f.write(f"Seed: {seed}, lr:{learning_rate}, dropout: {dropout} batch_size {batch_size} epochs {num_epochs} contrast {contrast_factor} \n")
+                            #     f.write(str(cv_metrics)+"\n")
+                            print(cv_metrics)
                             for key in cv_metrics:
-                                f.write(f"{key} mean: {np.mean(cv_metrics[key])}  std: {np.std(cv_metrics[key])} \n")
-                            f.write("\n")
+                                print(f"{key} mean: {np.mean(cv_metrics[key])}  std: {np.std(cv_metrics[key])}")
+                            #         f.write(f"{key} mean: {np.mean(cv_metrics[key])}  std: {np.std(cv_metrics[key])} \n")
+                            #     f.write("\n")

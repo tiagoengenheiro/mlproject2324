@@ -7,7 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.naive_bayes import GaussianNB
 from sklearn.metrics import balanced_accuracy_score
-from exercise4.utils import *
+from utils import *
 
 
 X=np.load("Xtrain_Classification2.npy")
