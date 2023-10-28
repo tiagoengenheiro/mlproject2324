@@ -21,6 +21,7 @@ y_test=np.load("ytest_Classification2.npy")
 print(y_test.shape)
 
 
+#Test if we get the 0.85%
 skf=StratifiedKFold(n_splits=5,shuffle=True,random_state=42)
 for _, (train_index, test_index) in enumerate(skf.split(X, y)):
     test_dataloader = DataLoader(FFNDataset(X[test_index],y[test_index],mode="test"),batch_size=X[test_index].shape[0],shuffle=False)
