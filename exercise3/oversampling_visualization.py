@@ -5,23 +5,22 @@ from imblearn.over_sampling import SMOTE,RandomOverSampler,ADASYN, KMeansSMOTE,B
 
 X=np.load("Xtrain_Classification1.npy")
 y=np.load("ytrain_Classification1.npy")
-sm = ADASYN(random_state=42)
-X,y=sm.fit_resample(X,y)
 
 X=X.reshape(X.shape[0],28,28,3)
-choices=sorted(np.arange(0,X.shape[0],1))
-print(y[0])
-num_of_samples=50
-indexes=random.sample(choices,num_of_samples)
+X=X[y==1]
+image=X[17] #8,9
+t={
+    "Regular":image,
+    "Rotation":np.rot90(image,k=1),
+    "Shift":np.roll(image,shift=2,axis=1),
+    "Flip":np.flip(image,axis=1)
+}
+for key in t:
+    plt.imshow(t[key])
+    plt.axis('off')
+    plt.tight_layout()
+    plt.savefig(f"report/{key}.png")
 
-fig, axs = plt.subplots(nrows=5, ncols=10, figsize=(14, 7),
-                        subplot_kw={'xticks': [], 'yticks': []})
 
 
-for ax, ind in zip(axs.flat, indexes):
-    ax.imshow(X[ind])
-    ax.set_title(f"Classified as {int(y[ind])}")
 
-
-plt.tight_layout()
-plt.savefig(f"images/{num_of_samples}SamplesVisualization.png")

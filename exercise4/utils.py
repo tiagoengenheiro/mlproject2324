@@ -7,7 +7,7 @@ import colorsys
 import random
 
 
-def self_augmentation_old(X_array,y_array,func=np.copy):
+def self_augmentation_1(X_array,y_array,func=np.copy):
     class_proportions=np.array(np.bincount(np.array(y_array,dtype=np.int64)),dtype=np.float32)/X_array.shape[0]
     print(class_proportions)
     class_proportions=np.round(np.max(class_proportions)/class_proportions)-1
@@ -28,6 +28,49 @@ def self_augmentation_old(X_array,y_array,func=np.copy):
     print(np.bincount(np.array(y_augmented,dtype=np.int64)))
     return X_augmented,y_augmented
 
+def self_augmentation_1_rotate_flip(X_array,y_array,func=np.copy):
+    class_proportions=np.array(np.bincount(np.array(y_array,dtype=np.int64)),dtype=np.float32)/X_array.shape[0]
+    print(class_proportions)
+    class_proportions=np.round(np.max(class_proportions)/class_proportions)-1
+    print("number of augmentations",class_proportions)
+    X_augmentations=[]
+    y_augmentations=[]
+    for i,n_aug in enumerate(class_proportions): #class,number of augmentations
+        if n_aug!=0:
+            X_label=X_array[y_array==i]
+            #print(f"Class {i}",X_label.shape[0],n_aug)
+            for _ in np.arange(n_aug): #percorrer por augmentation ou percorrer por labels
+                X_label_augmented=np.apply_along_axis(func,1,X_label)
+                X_augmentations.append(X_label_augmented)
+            y_augmentations=np.concatenate((y_augmentations,i*np.ones(X_label.shape[0]*np.int32(n_aug))))
+    X_augmentations=np.concatenate(X_augmentations,axis=0)
+    X_augmentations=apply_rotation_flip(X_augmentations,flip_prob=0.6)
+    X_augmented=np.concatenate((X_array,X_augmentations))
+    y_augmented=np.concatenate((y_array,y_augmentations))
+    print(np.bincount(np.array(y_augmented,dtype=np.int64)))
+    return X_augmented,y_augmented
+
+def self_augmentation_1_shift_flip(X_array,y_array,func=np.copy):
+    class_proportions=np.array(np.bincount(np.array(y_array,dtype=np.int64)),dtype=np.float32)/X_array.shape[0]
+    print(class_proportions)
+    class_proportions=np.round(np.max(class_proportions)/class_proportions)-1
+    print("number of augmentations",class_proportions)
+    X_augmentations=[]
+    y_augmentations=[]
+    for i,n_aug in enumerate(class_proportions): #class,number of augmentations
+        if n_aug!=0:
+            X_label=X_array[y_array==i]
+            #print(f"Class {i}",X_label.shape[0],n_aug)
+            for _ in np.arange(n_aug): #percorrer por augmentation ou percorrer por labels
+                X_label_augmented=np.apply_along_axis(func,1,X_label)
+                X_augmentations.append(X_label_augmented)
+            y_augmentations=np.concatenate((y_augmentations,i*np.ones(X_label.shape[0]*np.int32(n_aug))))
+    X_augmentations=np.concatenate(X_augmentations,axis=0)
+    X_augmentations=apply_shift_flip(X_augmentations,0.6)
+    X_augmented=np.concatenate((X_array,X_augmentations))
+    y_augmented=np.concatenate((y_array,y_augmentations))
+    print(np.bincount(np.array(y_augmented,dtype=np.int64)))
+    return X_augmented,y_augmented
 def get_augmentation_per_class(X_class,n_pure,n_rest):
     X_augmented=[X_class for _ in range (n_pure)]
     X_augmented=np.concatenate(X_augmented,axis=0)
@@ -35,10 +78,9 @@ def get_augmentation_per_class(X_class,n_pure,n_rest):
     X_augmented=np.vstack((X_augmented,X_class[random_indexes]))
     return X_augmented
 
-def self_augmentation(X_array,y_array):
+def self_augmentation_2(X_array,y_array):
     bin_count=np.bincount(np.array(y_array,dtype=np.int32))
     augmentations_per_class=max(bin_count)-bin_count
-    print(augmentations_per_class)
     pure_augmentations=augmentations_per_class//bin_count
     reminder_augmentations=augmentations_per_class%bin_count
     X_augmentations=[]
@@ -54,6 +96,18 @@ def self_augmentation(X_array,y_array):
     y_augmented=np.concatenate((y_array,y_augmentations))
     return X_augmented,y_augmented
 
+def apply_shift_flip(X_array,flip_prob,shift_n=2):
+    X_tranformed=[]
+    for i,image in enumerate(X_array.reshape(X_array.shape[0],28,28,3)):
+        flip=random.random()<flip_prob
+        if flip:
+            X_tranformed.append(np.flip(image,axis=i%2))
+        else:
+            shift=shift_n-2*shift_n*(i%2)
+            X_tranformed.append(np.roll(image,shift=shift,axis=i%2))
+        #X_train_pos_extra.append(np.roll(image,shift=-shift_n,axis=0))
+    return np.array(X_tranformed).reshape(X_array.shape[0],-1)
+
 def apply_rotation_flip(X_array,flip_prob):
     X_tranformed=[]
     for i,image in enumerate(X_array.reshape(X_array.shape[0],28,28,3)):
@@ -65,7 +119,7 @@ def apply_rotation_flip(X_array,flip_prob):
     return np.array(X_tranformed).reshape(X_array.shape[0],-1)
 
 
-def self_augmentation_rotation_flip(X_array,y_array,flip_prob=0.6):
+def self_augmentation_2_rotation_flip(X_array,y_array,flip_prob=0.6):
     bin_count=np.bincount(np.array(y_array,dtype=np.int32))
     augmentations_per_class=max(bin_count)-bin_count
     pure_augmentations=augmentations_per_class//bin_count
@@ -127,5 +181,37 @@ def pre_processing_contrast(X_array,contrast_factor):
     X_preprocessed=X_preprocessed.reshape(X_array.shape[0],-1)
     return X_preprocessed
 
-        
+def save_graphs(train_loss_list,val_loss_list,train_bacc_list,val_bacc_list): 
+    # Plotting the loss values
+    print(train_bacc_list)
+    x=np.arange(1,len(val_bacc_list)+1,1,dtype=np.int32)
+    plt.figure(figsize=(12, 4))
+    plt.subplot(1, 2, 1)
+    plt.plot(x,train_loss_list, label='Training Loss')
+    plt.plot(x,val_loss_list, label='Validation Loss')
+    #plt.xticks(x)
+    plt.xlabel('Epochs')
+    
+    plt.ylabel('Average Loss')
+    plt.legend()
 
+    # Plotting the b_accuracy values
+    plt.subplot(1, 2, 2)
+    plt.plot(x,train_bacc_list, label='Training Balanced Accuracy')
+    plt.plot(x,val_bacc_list, label='Validation Balanced Accuracy')
+    #plt.xticks(x)
+    plt.xlabel('Epochs')
+    plt.ylabel('Balanced Accuracy')
+    plt.legend()
+    plt.tight_layout()
+    # fig, ax1 = plt.subplots()
+    # ax1.set_xlabel('Epochs')
+    # ax1.plot(x,train_loss_list, label='Training Loss')
+    # ax1.plot(x,val_loss_list, label='Validation Loss')
+    # ax1.legend(loc='center right')
+    # ax2 = ax1.twinx()
+    # ax2.plot(x,train_bacc_list, label='Training Balanced Accuracy',color='tab:cyan')
+    # ax2.plot(x,val_bacc_list, label='Validation Balanced Accuracy',color='tab:olive')
+    # ax2.legend(loc='center')
+    # fig.tight_layout()
+    plt.savefig(f"images/b_acc_{round(max(val_bacc_list),3)}_epoch_{val_bacc_list.index(max(val_bacc_list))+1}_loss_{round(val_loss_list[val_bacc_list.index(max(val_bacc_list))],3)}.png")

@@ -73,7 +73,7 @@ class FFNDataset(Dataset):
         if mode=="train":
             print(X_array.shape,y_array.shape)
             if augmentation:
-                X_array,y_array=self_augmentation_rotation_flip(X_array,y_array)
+                X_array,y_array=self_augmentation_1_rotate_flip(X_array,y_array)
                 print("After Augmentation",X_array.shape,y_array.shape)
 
 
@@ -93,19 +93,27 @@ def train_loop(dataloader, model, loss_fn, optimizer,device,seed,epoch):
     model.train()
     num_batches = len(dataloader)
     train_loss=0
+    pred_list=[]
+    y_list=[]
     #setup_seed(seed) #seed for dataloader
     for batch, (X, y) in enumerate(dataloader):
         # Compute prediction and loss
         pred = model(X.to(device))
         loss = loss_fn(pred, y.to(device))
         train_loss+=loss.item()
+        pred_list.append(torch.argmax(pred,dim=1).cpu())
+        y_list.append(y)
         # Backpropagation
         loss.backward() #computed the loss for every parameter
         optimizer.step() #updates the parameters
         optimizer.zero_grad() #resets the gradients
     train_loss /= num_batches
+    y_list=np.concatenate(y_list,axis=0)
+    pred_list=np.concatenate(pred_list,axis=0)
+    b_acc=balanced_accuracy_score(y_list,pred_list)
+   
     #print(f"Avg train loss: {train_loss:>7f}")
-    return train_loss
+    return train_loss,b_acc
 
 def test_loop(dataloader, model, loss_fn,device):
     # Set the model to evaluation mode - important for batch normalization and dropout layers
@@ -123,13 +131,14 @@ def test_loop(dataloader, model, loss_fn,device):
             pred=torch.argmax(pred,dim=1).cpu() #dim=1 is by row
     #recall=recall_score(y,pred)
     balanced_acc = balanced_accuracy_score(y,pred)
+    recall_list=recall_score(y,pred,average=None)
     # specificity=2*balanced_acc-recall
     test_loss /= num_batches
     #print(f"Recall:{(100*recall):>0.1f}%, Specificity:{(100*specificity):>0.1f}%, Balanced Accuracy: {(100*balanced_acc):>0.1f}%,  Avg loss: {test_loss:>8f} \n")
-    return test_loss,balanced_acc
+    return test_loss,balanced_acc,recall_list
 
 
-def evaluate_model(X_train,y_train,X_test,y_test,seed=42,learning_rate=1e-3,dropout=0.4,early_stopping=False,augmentation=False,batch_size=64,epochs=20):
+def evaluate_model(X_train,y_train,X_test,y_test,seed=42,learning_rate=1e-3,dropout=0.4,early_stopping=False,augmentation=False,batch_size=64,epochs=20,split=0):
     #Setting seed for weights
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
@@ -149,32 +158,34 @@ def evaluate_model(X_train,y_train,X_test,y_test,seed=42,learning_rate=1e-3,drop
 
     train_loss_list=[]
     test_loss_list=[]
-    b_acc_list=[]
-    specifity_list=[]
-    recall_list=[]
+    val_b_acc_list=[]
+    train_b_acc_list=[]
     early_stopper = EarlyStopper(patience=20, min_delta=0)
     for epoch in range(1,epochs+1):
         #print(f"Epoch {epoch}\n-------------------------------")
-        train_loss=train_loop(train_dataloader, model, loss_fn, optimizer,device,seed,epoch)
+        train_loss,train_bacc=train_loop(train_dataloader, model, loss_fn, optimizer,device,seed,epoch)
         train_loss_list.append(train_loss)
+        train_b_acc_list.append(round(100*train_bacc,3))
         #print(f"Validation Results:")
-        avg_loss,balanced_acc=test_loop(test_dataloader, model, loss_fn,device)
-
+        avg_loss,val_b_acc,class_recall=test_loop(test_dataloader, model, loss_fn,device)
+        print("Recall",class_recall)
         #Save Metrics
-        print(f"Epoch: {epoch} Avg Train Loss: {train_loss} Avg Val Loss: {avg_loss} Balanced Accuracy {balanced_acc}")
+        d=5
+        print(f"Epoch: {round(epoch,d)} Avg Train Loss: {round(train_loss,d)} Avg Val Loss: {round(avg_loss,d)} Train Bal Accuracy: {round(train_bacc,d)} Val Balanced Accuracy: {round(val_b_acc,d)}")
         test_loss_list.append(avg_loss)
-        b_acc_list.append(round(100*balanced_acc,2))
+        val_b_acc_list.append(round(100*val_b_acc,3))
         
-        if early_stopping and early_stopper.early_stop(model,epoch,balanced_acc):  
+        if early_stopping and early_stopper.early_stop(model,epoch,val_b_acc):  
             print(f"Early Stopping")           
             break
+    save_graphs(train_loss_list,test_loss_list,train_b_acc_list,val_b_acc_list)  
     if early_stopping:
-        
+        print("Early Stopping")
         #print(f"Best model with {max(b_acc_list)} of b_acc for {b_acc_list.index(max(b_acc_list))+1} epochs with {round(test_loss_list[b_acc_list.index(max(b_acc_list))],3)} of test loss \n")
-        torch.save(early_stopper.state_dict, os.path.join(os.getcwd(),f'model_b_acc{max(b_acc_list)}_epochs{b_acc_list.index(max(b_acc_list))+1}_loss{round(test_loss_list[b_acc_list.index(max(b_acc_list))],3)}'))
-        return (max(b_acc_list),b_acc_list.index(max(b_acc_list))+1,round(test_loss_list[b_acc_list.index(max(b_acc_list))],3))
+        torch.save(early_stopper.state_dict, os.path.join(os.getcwd(),"report_models",f'model_split_{split}b_acc{max(val_b_acc_list)}_epochs{val_b_acc_list.index(max(val_b_acc_list))+1}_loss{round(test_loss_list[val_b_acc_list.index(max(val_b_acc_list))],3)}'))
+        return (max(val_b_acc_list),val_b_acc_list.index(max(val_b_acc_list))+1,round(test_loss_list[val_b_acc_list.index(max(val_b_acc_list))],3))
     else:
-        return balanced_acc,epoch,round(avg_loss,3)
+        return val_b_acc,epoch,round(avg_loss,3)
 
     
 if __name__=="__main__":
@@ -197,7 +208,7 @@ if __name__=="__main__":
         for seed in [42]:
             for dropout in [0.4]:
                 for batch_size in [64]:
-                    for num_epochs in [40]:
+                    for num_epochs in [35]:
                         for contrast_factor in [0]:
                             print(f"lr {learning_rate} seed {seed}")
                             cv_metrics={
@@ -205,10 +216,10 @@ if __name__=="__main__":
                                 "epochs":[],
                                 "val_loss":[]
                             }
-                            for _, (train_index, test_index) in enumerate(skf.split(X, y)):
+                            for i, (train_index, test_index) in enumerate(skf.split(X, y)):
                                 #print("len of train_size:",X[train_index].shape)
                                 #print("len of test_size:",X[test_index].shape)
-                                metrics=evaluate_model(X[train_index],y[train_index],X[test_index],y[test_index],seed=seed,early_stopping=True,augmentation=True,learning_rate=learning_rate,dropout=dropout,epochs=num_epochs)
+                                metrics=evaluate_model(X[train_index],y[train_index],X[test_index],y[test_index],seed=seed,early_stopping=True,augmentation=True,learning_rate=learning_rate,dropout=dropout,epochs=num_epochs,split=i)
                                 for i,key in enumerate(cv_metrics):
                                     cv_metrics[key].append(metrics[i])
                             # with open(f"testing_{filename}.txt","a") as f:

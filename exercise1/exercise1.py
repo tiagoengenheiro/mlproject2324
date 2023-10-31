@@ -39,20 +39,24 @@ alphas = [0.01, 0.1, 1, 10, 100, 1000]
 best_model="linear"
 best_alpha=0
 
-print(best_alpha,best_model,best_mean_score)
-
+print(best_alpha,best_model,round(best_mean_score,3),round(np.std(scores),3))
+models={
+    "lasso":[],
+    "ridge":[]
+}
 for alpha in alphas:
-    for model in ["ridge","lasso"]:
-        if model=="ridge":
+    for model_name in ["ridge","lasso"]:
+        if model_name=="ridge":
             model=Ridge(alpha)
         else:
             model=Lasso(alpha)
         model.fit(X_train,y_train)
         scores=(-1)*cross_validate(model, X_train, y_train, cv=5, scoring=('r2', 'neg_mean_squared_error'))["test_neg_mean_squared_error"]
         score_mean=np.mean(scores)
-        
+        models[model_name].append(round(score_mean,3))
+        models[model_name].append(round(np.std(scores),3))
         # print(best_alpha,best_model,best_mean_score)
-        print(alpha,model,score_mean)
+        print(alpha,model,score_mean,np.std(scores))
 
         if score_mean<best_mean_score:
             best_mean_score=score_mean
@@ -65,9 +69,8 @@ print("the best model is %s regression with an alpha of %s and a mean score of %
     best_alpha,
     best_mean_score))
 
-
 ## Best model is Lasso with alpha=0.1
-
+print(models)
 #Fitting the data with the best model
 model=Lasso(alpha=0.1) 
 model.fit(X_train,y_train)

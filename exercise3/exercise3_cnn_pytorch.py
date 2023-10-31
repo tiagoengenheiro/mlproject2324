@@ -65,7 +65,7 @@ class FFNDataset(Dataset):
         if mode=="train":
             if augmentation:
                 print("Using Augmentation")
-                X_array,y_array=self_augmentation_shift_flip(X_array,y_array)
+                X_array,y_array=self_augmentation_rotate_flip(X_array,y_array)
                 print(X_array.shape)
 
         self.X=torch.tensor(X_array,dtype=torch.float32).reshape(X_array.shape[0],3,28,28)
@@ -143,8 +143,8 @@ def evaluate_model(X_train,y_train,X_test,y_test,seed=42,early_stopping=False):
     
     model=CNN()
     learning_rate = 1e-3
-    batch_size = 30
-    epochs = 15
+    batch_size = 64
+    epochs = 20
     weight_decay=0.01
     loss_fn = nn.NLLLoss() #NLLLoss
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate,weight_decay=weight_decay)

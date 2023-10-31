@@ -21,18 +21,15 @@ cv=StratifiedKFold(n_splits=5,shuffle=True,random_state=random_state)
 
 rf_classifier = RandomForestClassifier(n_estimators=100,criterion = 'entropy', random_state=random_state)
 svm_classifier = SVC(kernel='rbf', C=1, gamma='scale',random_state=random_state)
-gaussian_nb  = GaussianNB()
-
 clfs={
     "RF":[],
     "SVM":[],
-    "GNB":[],
 }
 for i, (train_index, test_index) in enumerate(cv.split(X, y)):
     X_train,y_train=X[train_index],y[train_index]
-    X_train,y_train=self_augmentation(X_train,y_train)
+    X_train,y_train=self_augmentation_2(X_train,y_train)
     X_test,y_test=X[test_index],y[test_index]
-    for i,clf in enumerate([rf_classifier,svm_classifier,gaussian_nb]):
+    for i,clf in enumerate([rf_classifier,svm_classifier]):
         clf.fit(X_train,y_train)
         pred=clf.predict(X_test)
         b_acc=balanced_accuracy_score(y_test,pred)
